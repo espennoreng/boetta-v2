@@ -46,6 +46,11 @@ function CitationLink({
           />
           <InlineCitationCardBody>
             <div className="space-y-2 p-4">
+              {citation?.lovhjemmel && (
+                <p className="font-semibold text-xs text-muted-foreground">
+                  {citation.lovhjemmel}
+                </p>
+              )}
               <InlineCitationSource
                 title={citation?.checkpoint}
                 url={href}
