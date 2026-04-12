@@ -13,10 +13,15 @@ import {
 } from "@/components/ai-elements/message";
 import {
   Attachment,
+  AttachmentHoverCard,
+  AttachmentHoverCardContent,
+  AttachmentHoverCardTrigger,
   AttachmentInfo,
   AttachmentPreview,
   AttachmentRemove,
   Attachments,
+  getAttachmentLabel,
+  getMediaCategory,
 } from "@/components/ai-elements/attachments";
 import {
   PromptInput,
@@ -30,10 +35,6 @@ import {
   usePromptInputAttachments,
 } from "@/components/ai-elements/prompt-input";
 import { Tool, ToolHeader } from "@/components/ai-elements/tool";
-import {
-  Suggestions,
-  Suggestion,
-} from "@/components/ai-elements/suggestion";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { useAgentChat } from "@/hooks/use-agent-chat";
 import type { ChatMessage, ToolCall } from "@/hooks/use-agent-chat";
@@ -55,17 +56,46 @@ const AttachmentItem = memo(({ attachment, onRemove }: AttachmentItemProps) => {
     () => onRemove(attachment.id),
     [onRemove, attachment.id]
   );
+  const mediaCategory = getMediaCategory(attachment);
+  const label = getAttachmentLabel(attachment);
+
   return (
-    <Attachment
-      data={attachment}
-      key={attachment.id}
-      onRemove={handleRemove}
-      className="max-w-48"
-    >
-      <AttachmentPreview />
-      <AttachmentInfo className="truncate" />
-      <AttachmentRemove className="opacity-100" />
-    </Attachment>
+    <AttachmentHoverCard key={attachment.id}>
+      <AttachmentHoverCardTrigger>
+        <Attachment data={attachment} onRemove={handleRemove} className="max-w-48">
+          <div className="relative size-5 shrink-0">
+            <div className="absolute inset-0 transition-opacity group-hover:opacity-0">
+              <AttachmentPreview />
+            </div>
+            <AttachmentRemove className="absolute inset-0" />
+          </div>
+          <AttachmentInfo />
+        </Attachment>
+      </AttachmentHoverCardTrigger>
+      <AttachmentHoverCardContent>
+        <div className="space-y-3">
+          {mediaCategory === "image" && attachment.url && (
+            <div className="flex max-h-96 w-80 items-center justify-center overflow-hidden rounded-md border">
+              <img
+                alt={label}
+                className="max-h-full max-w-full object-contain"
+                height={384}
+                src={attachment.url}
+                width={320}
+              />
+            </div>
+          )}
+          <div className="space-y-1 px-0.5">
+            <h4 className="font-semibold text-sm leading-none">{label}</h4>
+            {attachment.mediaType && (
+              <p className="font-mono text-muted-foreground text-xs">
+                {attachment.mediaType}
+              </p>
+            )}
+          </div>
+        </div>
+      </AttachmentHoverCardContent>
+    </AttachmentHoverCard>
   );
 });
 
@@ -109,12 +139,6 @@ function toolStateToUIPart(state: ToolCall["state"]) {
   return state === "running" ? "input-available" : "output-available";
 }
 
-const SUGGESTIONS = [
-  "Write a Python script that generates Fibonacci numbers",
-  "Explain how async/await works in JavaScript",
-  "Create a simple REST API with Express",
-];
-
 export default function ChatPage() {
   const { messages, status, sendMessage } = useAgentChat();
 
@@ -128,20 +152,11 @@ export default function ChatPage() {
                 <MessageSquare className="size-8" />
               </div>
               <div className="space-y-1">
-                <h3 className="font-medium text-sm">Chat with Claude</h3>
+                <h3 className="font-medium text-sm">Boetta</h3>
                 <p className="text-muted-foreground text-sm">
-                  Send a message to start a conversation.
+                  Last opp filer og still spørsmål for å komme i gang.
                 </p>
               </div>
-              <Suggestions className="mt-2 justify-center">
-                {SUGGESTIONS.map((s) => (
-                  <Suggestion
-                    key={s}
-                    suggestion={s}
-                    onClick={(text) => sendMessage(text)}
-                  />
-                ))}
-              </Suggestions>
             </div>
           ) : (
             messages.map((msg, i) => (
