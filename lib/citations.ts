@@ -49,16 +49,27 @@ function extractFromCheckpointDetail(cp: {
 }
 
 function extractFromCheckpointsList(
-  cps: { Navn?: string; Lovhjemmel?: string[] }[],
+  cps: {
+    Navn?: string;
+    Lovhjemmel?: (string | { Lovhjemmel: string; LovhjemmelUrl?: string })[];
+  }[],
 ): Citation[] {
   const citations: Citation[] = [];
   for (const cp of cps) {
     if (!cp.Lovhjemmel) continue;
     for (const ref of cp.Lovhjemmel) {
-      if (ref) {
+      if (typeof ref === "string") {
+        if (ref) {
+          citations.push({
+            lovhjemmel: ref,
+            url: "",
+            checkpoint: cp.Navn ?? "",
+          });
+        }
+      } else if (ref.Lovhjemmel) {
         citations.push({
-          lovhjemmel: ref,
-          url: "",
+          lovhjemmel: ref.Lovhjemmel,
+          url: ref.LovhjemmelUrl ?? "",
           checkpoint: cp.Navn ?? "",
         });
       }

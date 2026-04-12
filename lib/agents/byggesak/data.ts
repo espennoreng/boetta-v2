@@ -55,7 +55,7 @@ export function getCheckpoints(
     Id: cp.Id,
     Navn: cp.Navn,
     Tema: cp.Tema,
-    Lovhjemmel: cp.Lovhjemmel.filter((l) => l.Lovhjemmel).map((l) => l.Lovhjemmel),
+    Lovhjemmel: cp.Lovhjemmel.filter((l) => l.Lovhjemmel),
   }));
 }
 
