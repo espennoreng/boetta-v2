@@ -1,13 +1,16 @@
 import { createSession, sendMessageAndStream } from "@/lib/agent-manager";
+import type { FileUIPart } from "ai";
 
 export async function POST(request: Request) {
-  const { message, sessionId: existingSessionId } = (await request.json()) as {
-    message: string;
-    sessionId?: string;
-  };
+  const { message, sessionId: existingSessionId, files } =
+    (await request.json()) as {
+      message: string;
+      sessionId?: string;
+      files?: FileUIPart[];
+    };
 
   const sessionId = existingSessionId ?? (await createSession());
-  const stream = await sendMessageAndStream(sessionId, message);
+  const stream = await sendMessageAndStream(sessionId, message, files ?? []);
 
   const encoder = new TextEncoder();
 

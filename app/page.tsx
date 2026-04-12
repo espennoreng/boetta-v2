@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, PaperclipIcon } from "lucide-react";
 import {
   Conversation,
   ConversationContent,
@@ -12,12 +12,23 @@ import {
   MessageResponse,
 } from "@/components/ai-elements/message";
 import {
+  Attachment,
+  AttachmentInfo,
+  AttachmentPreview,
+  AttachmentRemove,
+  Attachments,
+} from "@/components/ai-elements/attachments";
+import {
   PromptInput,
   PromptInputTextarea,
   PromptInputBody,
+  PromptInputButton,
+  PromptInputFooter,
+  PromptInputProvider,
+  PromptInputSubmit,
+  PromptInputTools,
+  usePromptInputAttachments,
 } from "@/components/ai-elements/prompt-input";
-import { Button } from "@/components/ui/button";
-import { Send } from "lucide-react";
 import { Tool, ToolHeader } from "@/components/ai-elements/tool";
 import {
   Suggestions,
@@ -26,6 +37,73 @@ import {
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { useAgentChat } from "@/hooks/use-agent-chat";
 import type { ChatMessage, ToolCall } from "@/hooks/use-agent-chat";
+import { memo, useCallback } from "react";
+
+interface AttachmentItemProps {
+  attachment: {
+    id: string;
+    type: "file";
+    filename?: string;
+    mediaType: string;
+    url: string;
+  };
+  onRemove: (id: string) => void;
+}
+
+const AttachmentItem = memo(({ attachment, onRemove }: AttachmentItemProps) => {
+  const handleRemove = useCallback(
+    () => onRemove(attachment.id),
+    [onRemove, attachment.id]
+  );
+  return (
+    <Attachment
+      data={attachment}
+      key={attachment.id}
+      onRemove={handleRemove}
+      className="max-w-48"
+    >
+      <AttachmentPreview />
+      <AttachmentInfo className="truncate" />
+      <AttachmentRemove className="opacity-100" />
+    </Attachment>
+  );
+});
+
+AttachmentItem.displayName = "AttachmentItem";
+
+const AttachFilesButton = () => {
+  const attachments = usePromptInputAttachments();
+  return (
+    <PromptInputButton onClick={() => attachments.openFileDialog()}>
+      <PaperclipIcon className="size-4" />
+    </PromptInputButton>
+  );
+};
+
+const PromptInputAttachmentsDisplay = () => {
+  const attachments = usePromptInputAttachments();
+
+  const handleRemove = useCallback(
+    (id: string) => attachments.remove(id),
+    [attachments]
+  );
+
+  if (attachments.files.length === 0) {
+    return null;
+  }
+
+  return (
+    <Attachments variant="inline" className="max-h-32 w-full self-start overflow-y-auto p-2">
+      {attachments.files.map((attachment) => (
+        <AttachmentItem
+          attachment={attachment}
+          key={attachment.id}
+          onRemove={handleRemove}
+        />
+      ))}
+    </Attachments>
+  );
+};
 
 function toolStateToUIPart(state: ToolCall["state"]) {
   return state === "running" ? "input-available" : "output-available";
@@ -80,25 +158,30 @@ export default function ChatPage() {
       </Conversation>
 
       <div className="mx-auto w-full max-w-3xl px-4 pb-4">
-        <PromptInput
-          onSubmit={async ({ text }) => {
-            if (!text.trim() || status === "streaming") return;
-            await sendMessage(text);
-          }}
-        >
-          <PromptInputBody>
-            <PromptInputTextarea placeholder="Send a message..."/>
-            <Button
-              type="submit"
-              size="icon"
-              variant="ghost"
-              disabled={status === "streaming"}
-              className="shrink-0"
-            >
-              <Send className="size-4" />
-            </Button>
-          </PromptInputBody>
-        </PromptInput>
+        <PromptInputProvider>
+          <PromptInput
+            globalDrop
+            multiple
+            onSubmit={({ text, files }) => {
+              if ((!text.trim() && files.length === 0) || status === "streaming")
+                return;
+              sendMessage(text, files);
+            }}
+          >
+            <PromptInputAttachmentsDisplay />
+            <PromptInputBody>
+              <PromptInputTextarea placeholder="Send a message..." />
+            </PromptInputBody>
+            <PromptInputFooter>
+              <PromptInputTools>
+                <AttachFilesButton />
+              </PromptInputTools>
+              <PromptInputSubmit
+                status={status === "streaming" ? "streaming" : "ready"}
+              />
+            </PromptInputFooter>
+          </PromptInput>
+        </PromptInputProvider>
       </div>
     </div>
   );
@@ -116,7 +199,17 @@ function ChatMessageItem({
   if (message.role === "user") {
     return (
       <Message from="user">
-        <MessageContent>{message.text}</MessageContent>
+        {message.files && message.files.length > 0 && (
+          <Attachments variant="inline" className="mb-1 justify-end">
+            {message.files.map((file, i) => (
+              <Attachment key={i} data={{ ...file, id: String(i) }}>
+                <AttachmentPreview />
+                <AttachmentInfo />
+              </Attachment>
+            ))}
+          </Attachments>
+        )}
+        {message.text && <MessageContent>{message.text}</MessageContent>}
       </Message>
     );
   }

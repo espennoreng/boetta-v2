@@ -1,5 +1,6 @@
 "use client";
 
+import type { FileUIPart } from "ai";
 import { useState, useCallback, useRef } from "react";
 
 export interface ToolCall {
@@ -12,6 +13,7 @@ export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   text: string;
+  files?: FileUIPart[];
   toolCalls?: ToolCall[];
   isThinking?: boolean;
 }
@@ -31,11 +33,12 @@ export function useAgentChat() {
   const [status, setStatus] = useState<Status>("idle");
   const sessionIdRef = useRef<string | null>(null);
 
-  const sendMessage = useCallback(async (text: string) => {
+  const sendMessage = useCallback(async (text: string, files: FileUIPart[] = []) => {
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
       text,
+      ...(files.length > 0 ? { files } : {}),
     };
     const assistantId = crypto.randomUUID();
     const assistantMessage: ChatMessage = {
@@ -56,6 +59,7 @@ export function useAgentChat() {
         body: JSON.stringify({
           message: text,
           sessionId: sessionIdRef.current,
+          ...(files.length > 0 ? { files } : {}),
         }),
       });
 

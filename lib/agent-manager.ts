@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import type { FileUIPart } from "ai";
 
 const client = new Anthropic();
 
@@ -49,17 +50,58 @@ export async function createSession(): Promise<string> {
   return session.id;
 }
 
+function buildContentBlocks(
+  text: string,
+  files: FileUIPart[],
+) {
+  const content: Array<
+    | { type: "text"; text: string }
+    | { type: "image"; source: { type: "base64"; media_type: string; data: string } }
+    | { type: "document"; source: { type: "base64"; media_type: string; data: string }; title?: string }
+  > = [];
+
+  for (const file of files) {
+    // data URLs look like: data:<mediaType>;base64,<data>
+    const match = file.url.match(/^data:([^;]+);base64,(.+)$/);
+    if (!match) continue;
+
+    const [, mediaType, data] = match;
+
+    if (mediaType.startsWith("image/")) {
+      content.push({
+        type: "image",
+        source: { type: "base64", media_type: mediaType, data },
+      });
+    } else {
+      content.push({
+        type: "document",
+        source: { type: "base64", media_type: mediaType, data },
+        ...(file.filename ? { title: file.filename } : {}),
+      });
+    }
+  }
+
+  if (text) {
+    content.push({ type: "text", text });
+  }
+
+  return content;
+}
+
 export async function sendMessageAndStream(
   sessionId: string,
   text: string,
+  files: FileUIPart[] = [],
 ) {
   const stream = await client.beta.sessions.events.stream(sessionId);
+
+  const content = buildContentBlocks(text, files);
 
   await client.beta.sessions.events.send(sessionId, {
     events: [
       {
         type: "user.message",
-        content: [{ type: "text", text }],
+        content,
       },
     ],
   });
