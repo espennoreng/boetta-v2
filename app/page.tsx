@@ -34,7 +34,7 @@ import {
   PromptInputTools,
   usePromptInputAttachments,
 } from "@/components/ai-elements/prompt-input";
-import { Tool, ToolHeader } from "@/components/ai-elements/tool";
+import { Tool, ToolHeader, ToolContent, ToolOutput } from "@/components/ai-elements/tool";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { useAgentChat } from "@/hooks/use-agent-chat";
 import type { ChatMessage, ToolCall } from "@/hooks/use-agent-chat";
@@ -230,19 +230,16 @@ function ChatMessageItem({
   }
 
   const hasContent = message.text || (message.toolCalls?.length ?? 0) > 0;
-  const showLoading = isLast && isStreaming && !hasContent;
+  const showInitialLoading = isLast && isStreaming && !hasContent;
+  const showThinkingAfterTools =
+    isLast && isStreaming && message.isThinking && !message.text;
 
   return (
     <Message from="assistant">
-      {showLoading && (
+      {showInitialLoading && (
         <Shimmer as="p" className="text-sm">
           Thinking...
         </Shimmer>
-      )}
-      {message.text && (
-        <MessageContent>
-          <MessageResponse>{message.text}</MessageResponse>
-        </MessageContent>
       )}
       {message.toolCalls?.map((tc) => (
         <Tool key={tc.id}>
@@ -251,8 +248,23 @@ function ChatMessageItem({
             toolName={tc.name}
             state={toolStateToUIPart(tc.state)}
           />
+          {tc.result && (
+            <ToolContent>
+              <ToolOutput output={tc.result} errorText={undefined} />
+            </ToolContent>
+          )}
         </Tool>
       ))}
+      {showThinkingAfterTools && (
+        <Shimmer as="p" className="text-sm">
+          Analyserer...
+        </Shimmer>
+      )}
+      {message.text && (
+        <MessageContent>
+          <MessageResponse>{message.text}</MessageResponse>
+        </MessageContent>
+      )}
     </Message>
   );
 }

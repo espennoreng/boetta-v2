@@ -181,7 +181,7 @@ export async function* streamWithToolHandling(
             ],
           });
 
-          yield { type: "tool_result", id: customEvent.id };
+          yield { type: "tool_result", id: customEvent.id, result };
           break;
         }
 

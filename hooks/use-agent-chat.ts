@@ -7,6 +7,7 @@ export interface ToolCall {
   id: string;
   name: string;
   state: "running" | "completed";
+  result?: string;
 }
 
 export interface ChatMessage {
@@ -26,6 +27,7 @@ interface SSEEvent {
   id?: string;
   name?: string;
   displayName?: string;
+  result?: string;
   message?: string;
 }
 
@@ -133,9 +135,14 @@ export function useAgentChat() {
                   msg.id === assistantId
                     ? {
                         ...msg,
+                        isThinking: true,
                         toolCalls: msg.toolCalls?.map((tc) =>
                           tc.id === event.id
-                            ? { ...tc, state: "completed" as const }
+                            ? {
+                                ...tc,
+                                state: "completed" as const,
+                                ...(event.result ? { result: event.result } : {}),
+                              }
                             : tc,
                         ),
                       }
