@@ -4,7 +4,6 @@ import { MessageSquare } from "lucide-react";
 import {
   Conversation,
   ConversationContent,
-  ConversationEmptyState,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
 import {
@@ -46,12 +45,17 @@ export default function ChatPage() {
       <Conversation className="flex-1">
         <ConversationContent className="mx-auto w-full max-w-3xl">
           {messages.length === 0 ? (
-            <ConversationEmptyState
-              title="Chat with Claude"
-              description="Send a message to start a conversation."
-              icon={<MessageSquare className="size-8" />}
-            >
-              <Suggestions className="mt-4 justify-center">
+            <div className="flex size-full flex-col items-center justify-center gap-4 p-8 text-center">
+              <div className="text-muted-foreground">
+                <MessageSquare className="size-8" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-medium text-sm">Chat with Claude</h3>
+                <p className="text-muted-foreground text-sm">
+                  Send a message to start a conversation.
+                </p>
+              </div>
+              <Suggestions className="mt-2 justify-center">
                 {SUGGESTIONS.map((s) => (
                   <Suggestion
                     key={s}
@@ -60,7 +64,7 @@ export default function ChatPage() {
                   />
                 ))}
               </Suggestions>
-            </ConversationEmptyState>
+            </div>
           ) : (
             messages.map((msg, i) => (
               <ChatMessageItem
