@@ -32,14 +32,8 @@ function CitationLink({
   const registry = useContext(CitationContext);
 
   if (href?.includes("lovdata.no")) {
-    // Find the citation by URL match
-    let citation: Citation | undefined;
-    for (const c of registry.values()) {
-      if (c.url === href) {
-        citation = c;
-        break;
-      }
-    }
+    const decodedHref = decodeURIComponent(href);
+    const citation = registry.get(href) ?? registry.get(decodedHref);
 
     return (
       <InlineCitation>
