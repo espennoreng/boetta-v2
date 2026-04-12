@@ -2,7 +2,7 @@
 
 ## Goal
 
-Add DIBK building permit checklist tools to the managed agent so a municipal case worker can upload a søknad PDF and have the agent systematically review it against the relevant national checklist.
+Add DIBK building permit checklist tools to the managed agent so a municipal case worker can upload a søknad PDF and have the agent systematically review it against the relevant national checklist. The architecture should make it straightforward to add new permit domain agents (Arbeidstilsyn, Miljø, etc.) without touching shared code.
 
 ## Decisions
 
@@ -11,7 +11,7 @@ Add DIBK building permit checklist tools to the managed agent so a municipal cas
 - **Output:** Conversational — no structured report. Case worker asks follow-ups and drills into specifics.
 - **Data access:** Structured filtering on JSON in memory. No RAG, no vector store, no database.
 - **Unverifiable checkpoints:** Agent asks the case worker directly. These questions become tool calls in the future (NVE, planregister, matrikkel, etc.)
-- **Multi-agent future:** Each permit domain gets its own agent. Shared tools are duplicated in definitions but backed by shared server-side logic. Domain tools are agent-specific.
+- **Multi-agent from the start:** Modular agent architecture where each permit domain is a self-contained module. Adding a new domain = adding a folder, not modifying shared code.
 
 ## Architecture
 
@@ -22,35 +22,87 @@ Browser (React)
   ai-elements components (shows tool displayNames)
 
 Next.js API Route (/api/chat)
-  Event loop with custom tool interception:
-    agent.custom_tool_use → handleToolCall() → user.custom_tool_result
-    all other events → proxy to browser
+  Generic event loop — knows nothing about byggesak:
+    agent.custom_tool_use → registry.handleToolCall() → user.custom_tool_result
+    all other events → proxy to browser (with displayName from registry)
 
-  AgentManager (lib/agent-manager.ts)
-    Byggesak agent with 6 custom tools + agent_toolset
-    System prompt with compact checkpoint index
+  Agent Registry (lib/agents/registry.ts)
+    Maps agent type → AgentModule
+    Currently: { byggesak: byggesakAgent }
 
-  ChecklistTools (lib/checklist-tools.ts)
-    handleToolCall(name, input) → JSON result
-    Display name map for UI
+  Agent Module: Byggesak (lib/agents/byggesak/)
+    agent.ts       → agent config (model, system prompt, tool definitions)
+    data.ts        → loads 8 DIBK JSON files, exports query functions
+    tools.ts       → handleToolCall() for byggesak-specific tools
+    display-names.ts → Norwegian display names
 
-  ChecklistData (lib/checklist-data.ts)
-    Loads 8 JSON files into memory at startup
-    Query functions: filter, search, detail lookup
+  Shared Tools (lib/agents/shared-tools.ts)
+    Tool handlers reused across all domains (search_lovdata)
 
 Managed Agents API
   agent + environment + session
+
+Data (data/)
+  byggesak/*.json  → 8 DIBK checklist files
+```
+
+## Agent Module Interface
+
+Every agent module exports the same shape. The API route and UI are generic — they call these methods without knowing what domain they're in.
+
+```typescript
+interface AgentModule {
+  // Unique identifier for this agent type
+  id: string;
+
+  // Create the Anthropic agent config (model, system prompt, tools)
+  createAgentConfig(): {
+    name: string;
+    model: string;
+    system: string;
+    tools: ToolDefinition[];
+  };
+
+  // Handle a custom tool call — dispatch to the right handler
+  handleToolCall(name: string, input: Record<string, unknown>): Promise<string>;
+
+  // Map tool ID → display name for the UI (returns null for unknown tools)
+  getDisplayName(toolName: string): string | null;
+}
+```
+
+## Agent Registry
+
+```typescript
+// lib/agents/registry.ts
+import { byggesakAgent } from "./byggesak/agent";
+// import { arbeidstilsynAgent } from "./arbeidstilsyn/agent";  ← future
+
+export const agents: Record<string, AgentModule> = {
+  byggesak: byggesakAgent,
+  // arbeidstilsyn: arbeidstilsynAgent,  ← one line to add
+};
+
+export function getAgent(type: string): AgentModule {
+  const agent = agents[type];
+  if (!agent) throw new Error(`Unknown agent type: ${type}`);
+  return agent;
+}
 ```
 
 ## Custom Tools
 
 ### Shared tools (reused by future permit agents)
 
+Defined in `lib/agents/shared-tools.ts`. Each agent module includes these in its tool definitions, but the handler logic is shared.
+
 | Tool | Description | Parameters |
 |------|-------------|------------|
 | `search_lovdata` | Find all checkpoints citing a specific law paragraph | `lovhjemmel: string` |
 
 ### Domain tools (byggesak-specific)
+
+Defined in `lib/agents/byggesak/tools.ts`.
 
 | Tool | Description | Parameters |
 |------|-------------|------------|
@@ -61,6 +113,8 @@ Managed Agents API
 | `search_checkpoints` | Text search across checkpoint names and descriptions | `query: string`, `type?` |
 
 ### Display names
+
+Defined in `lib/agents/byggesak/display-names.ts`.
 
 | Tool ID | Display name |
 |---------|-------------|
@@ -73,7 +127,7 @@ Managed Agents API
 
 ## System Prompt
 
-Four parts, ~5,200 tokens total:
+Four parts, ~5,200 tokens total. Defined in `lib/agents/byggesak/agent.ts`.
 
 ### 1. Role and behavior (~200 tokens)
 
@@ -125,10 +179,12 @@ Agent event → proxy to browser → done
 
 ### New behavior
 
+The route is generic — it uses the agent registry, not byggesak-specific code.
+
 ```
 Agent event → is it agent.custom_tool_use?
-  No  → proxy to browser (add displayName for tool_use events)
-  Yes → execute handleToolCall(name, input)
+  No  → proxy to browser (add displayName via registry.getDisplayName())
+  Yes → execute registry.handleToolCall(name, input)
        → send user.custom_tool_result back to managed agent
        → proxy tool_use and tool_result events to browser (with displayName)
        → continue streaming
@@ -150,16 +206,20 @@ Client uses `displayName` if present, falls back to `name`.
 
 | File | Purpose |
 |------|---------|
-| `lib/checklist-tools.ts` | `handleToolCall(name, input)` dispatch + display name map |
-| `lib/checklist-data.ts` | Load and cache 8 JSON files, export query functions |
-| `data/checklists/*.json` | 8 DIBK checklist JSON files |
+| `lib/agents/registry.ts` | Agent registry — maps type → AgentModule, generic dispatch |
+| `lib/agents/shared-tools.ts` | Shared tool handlers (search_lovdata) and shared tool definitions |
+| `lib/agents/byggesak/agent.ts` | Byggesak AgentModule — config, system prompt, tool list |
+| `lib/agents/byggesak/data.ts` | Load and cache 8 DIBK JSON files, export query functions |
+| `lib/agents/byggesak/tools.ts` | Tool handlers for byggesak-specific tools |
+| `lib/agents/byggesak/display-names.ts` | Display name map |
+| `data/byggesak/*.json` | 8 DIBK checklist JSON files |
 
 ### Modified files
 
 | File | Change |
 |------|--------|
-| `lib/agent-manager.ts` | Add 6 custom tool definitions. Update system prompt. Change stream handling to intercept custom tool calls. |
-| `app/api/chat/route.ts` | Integrate custom tool handler into event loop. Add displayName to tool_use SSE events. |
+| `lib/agent-manager.ts` | Use registry to get agent config. Change stream handling to intercept custom tool calls via registry. |
+| `app/api/chat/route.ts` | Pass registry-based tool handler into event loop. Forward displayName in tool_use events. |
 | `hooks/use-agent-chat.ts` | Read `displayName` from tool_use events. |
 | `app/page.tsx` | Show `displayName` in ToolHeader. |
 
@@ -174,26 +234,33 @@ Client uses `displayName` if present, falls back to `name`.
 - Single checkpoint: median 783 tokens, max 8,686 tokens
 - Filtered result set (type + tiltakstype): typically 20-40 checkpoints at 3-5K tokens
 
-## Multi-Agent Future
+## Adding a New Permit Domain
 
-When adding new permit domains:
+To add a new agent (e.g., Arbeidstilsyn):
 
-1. Create a new agent with shared tools (`search_lovdata`) + domain-specific tools
-2. Add domain data files and a new data loader
-3. Add tool handlers to `checklist-tools.ts` (or a new `{domain}-tools.ts`)
-4. Add routing logic in the app to select the right agent
+1. Create `lib/agents/arbeidstilsyn/` with 4 files implementing `AgentModule`:
+   - `agent.ts` — config, system prompt, tool definitions
+   - `data.ts` — load domain-specific data
+   - `tools.ts` — domain tool handlers
+   - `display-names.ts` — Norwegian display names
+2. Add data files to `data/arbeidstilsyn/`
+3. Add one line to `lib/agents/registry.ts`
+4. Done — API route, hook, and UI work automatically
 
-When sub-agents become available:
+**No shared code is modified.** The registry, API route, hook, and UI components are generic.
+
+## When Sub-Agents Become Available
 
 1. Create an orchestrator agent that routes to domain specialists
 2. Move shared tools to the orchestrator or a common sub-agent
 3. Each domain agent keeps its own tools
-4. The `handleToolCall` function and data layer don't change
+4. The `AgentModule` interface, tool handlers, and data layer don't change
 
 ## Out of Scope
 
 - Structured report export
 - NVE/planregister/matrikkel tool integrations (future tools)
 - Multi-agent orchestration (waiting for sub-agent support)
+- Agent routing logic (for now, hardcoded to byggesak — routing added when second agent exists)
 - Session persistence across page loads
 - Authentication / multi-user support
