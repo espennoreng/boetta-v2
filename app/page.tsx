@@ -87,7 +87,7 @@ export default function ChatPage() {
           }}
         >
           <PromptInputBody>
-            <PromptInputTextarea placeholder="Send a message..." className="min-h-10" />
+            <PromptInputTextarea placeholder="Send a message..."/>
             <Button
               type="submit"
               size="icon"
