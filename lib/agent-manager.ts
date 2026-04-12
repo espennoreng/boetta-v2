@@ -1,6 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { FileUIPart } from "ai";
 import { getAgent } from "@/lib/agents/registry";
+import {
+  type Citation,
+  extractCitationsFromToolResult,
+  buildCitationRegistry,
+} from "@/lib/citations";
 
 const client = new Anthropic();
 
@@ -102,11 +107,110 @@ export interface StreamEvent {
   [key: string]: unknown;
 }
 
+async function* resolvePendingToolCalls(
+  sessionId: string,
+): AsyncGenerator<StreamEvent> {
+  // Find the most recent session.status_idle event to check for pending actions
+  let pendingIds: string[] | null = null;
+
+  for await (const event of client.beta.sessions.events.list(sessionId, {
+    order: "desc",
+  })) {
+    if (event.type === "session.status_idle") {
+      const idleEvent = event as {
+        stop_reason?: { type: string; event_ids?: string[] };
+      };
+      if (
+        idleEvent.stop_reason?.type === "requires_action" &&
+        idleEvent.stop_reason.event_ids?.length
+      ) {
+        pendingIds = idleEvent.stop_reason.event_ids;
+      }
+      break;
+    }
+  }
+
+  if (!pendingIds) return;
+
+  // Find the pending custom tool use events and execute them
+  const pendingSet = new Set(pendingIds);
+  const toolEvents: Array<{
+    id: string;
+    name: string;
+    input: Record<string, unknown>;
+  }> = [];
+
+  for await (const event of client.beta.sessions.events.list(sessionId, {
+    order: "desc",
+  })) {
+    if (
+      event.type === "agent.custom_tool_use" &&
+      pendingSet.has(event.id)
+    ) {
+      toolEvents.push(
+        event as { id: string; name: string; input: Record<string, unknown> },
+      );
+      pendingSet.delete(event.id);
+    }
+    if (pendingSet.size === 0) break;
+  }
+
+  const toolResults: Array<{
+    type: "user.custom_tool_result";
+    custom_tool_use_id: string;
+    content: Array<{ type: "text"; text: string }>;
+  }> = [];
+
+  for (const toolEvent of toolEvents) {
+    const displayName = agentModule.getDisplayName(
+      toolEvent.name,
+      toolEvent.input,
+    );
+    // Show the tool call in the UI
+    yield {
+      type: "tool_use",
+      id: toolEvent.id,
+      name: toolEvent.name,
+      ...(displayName ? { displayName } : {}),
+    };
+
+    const result = await agentModule.handleToolCall(
+      toolEvent.name,
+      toolEvent.input,
+    );
+
+    toolResults.push({
+      type: "user.custom_tool_result",
+      custom_tool_use_id: toolEvent.id,
+      content: [{ type: "text", text: result }],
+    });
+
+    // Show the tool result in the UI
+    yield { type: "tool_result", id: toolEvent.id, result };
+  }
+
+  if (toolResults.length > 0) {
+    await client.beta.sessions.events.send(sessionId, {
+      events: toolResults,
+    });
+    // Wait for the agent to finish processing, forwarding any events
+    const stream = await client.beta.sessions.events.stream(sessionId);
+    for await (const event of stream) {
+      if (event.type === "session.status_idle") break;
+    }
+    // Recurse in case the agent called more custom tools
+    yield* resolvePendingToolCalls(sessionId);
+  }
+}
+
 export async function* streamWithToolHandling(
   sessionId: string,
   text: string,
   files: FileUIPart[] = [],
 ): AsyncGenerator<StreamEvent> {
+  // Resolve any pending tool calls from a previous interrupted session
+  yield* resolvePendingToolCalls(sessionId);
+
   const content = buildContentBlocks(text, files);
 
   await client.beta.sessions.events.send(sessionId, {
@@ -117,6 +221,8 @@ export async function* streamWithToolHandling(
       },
     ],
   });
+
+  const collectedCitations: Citation[] = [];
 
   // Loop: each iteration opens a stream and processes events until idle.
   // If idle is due to requires_action (custom tool), we handle it and loop again.
@@ -145,7 +251,7 @@ export async function* streamWithToolHandling(
 
         case "agent.tool_use": {
           const toolEvent = event as { id: string; name: string; input: Record<string, unknown> };
-          const displayName = agentModule.getDisplayName(toolEvent.name);
+          const displayName = agentModule.getDisplayName(toolEvent.name, toolEvent.input);
           yield {
             type: "tool_use",
             id: toolEvent.id,
@@ -157,7 +263,7 @@ export async function* streamWithToolHandling(
 
         case "agent.custom_tool_use": {
           const customEvent = event as { id: string; name: string; input: Record<string, unknown> };
-          const displayName = agentModule.getDisplayName(customEvent.name);
+          const displayName = agentModule.getDisplayName(customEvent.name, customEvent.input);
 
           yield {
             type: "tool_use",
@@ -170,6 +276,9 @@ export async function* streamWithToolHandling(
             customEvent.name,
             customEvent.input,
           );
+
+          const extracted = extractCitationsFromToolResult(customEvent.name, result);
+          collectedCitations.push(...extracted);
 
           await client.beta.sessions.events.send(sessionId, {
             events: [
@@ -201,6 +310,13 @@ export async function* streamWithToolHandling(
             shouldContinue = true;
           } else {
             // end_turn or other — we're done
+            if (collectedCitations.length > 0) {
+              const registry = buildCitationRegistry(collectedCitations);
+              yield {
+                type: "citations",
+                citations: Array.from(registry.values()),
+              };
+            }
             yield { type: "done" };
             return;
           }
