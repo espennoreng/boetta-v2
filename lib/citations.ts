@@ -80,6 +80,9 @@ export function findCitationsInText(
 ): CitationMatch[] {
   if (registry.size === 0) return [];
 
+  // Broad character-class rather than registry-derived alternation.
+  // False-positive lookups are O(1) Map misses; the registry gate prevents
+  // spurious CitationMatch results.
   const pattern =
     /([a-zæøåA-ZÆØÅ][a-zæøåA-ZÆØÅ0-9]*)\s*[.]*\s*§\s*(\d+[-–]\d+)/g;
 
@@ -87,6 +90,7 @@ export function findCitationsInText(
   let match: RegExpExecArray | null;
 
   while ((match = pattern.exec(text)) !== null) {
+    // normalizeLovhjemmel lowercases internally, so mixed-case match[0] is safe here
     const key = normalizeLovhjemmel(match[0]);
     const citation = registry.get(key);
     if (citation) {
@@ -99,7 +103,15 @@ export function findCitationsInText(
     }
   }
 
-  return matches;
+  const deduped: CitationMatch[] = [];
+  let cursor = 0;
+  for (const m of matches) {
+    if (m.start >= cursor) {
+      deduped.push(m);
+      cursor = m.end;
+    }
+  }
+  return deduped;
 }
 
 export function buildCitationRegistry(
