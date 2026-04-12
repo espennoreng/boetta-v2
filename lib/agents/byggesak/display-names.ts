@@ -7,6 +7,37 @@ const displayNames: Record<string, string> = {
   search_lovdata: "Søker i lovhjemler",
 };
 
-export function getDisplayName(toolName: string): string | null {
-  return displayNames[toolName] ?? null;
+export function getDisplayName(
+  toolName: string,
+  input?: Record<string, unknown>,
+): string | null {
+  const base = displayNames[toolName];
+  if (!base) return null;
+  if (!input) return base;
+
+  switch (toolName) {
+    case "get_checklist_overview":
+      return input.type ? `${base} (${input.type})` : base;
+
+    case "get_checkpoints":
+      if (input.tema) return `${base} — ${input.tema}`;
+      if (input.tiltakstype) return `${base} — ${input.tiltakstype}`;
+      return base;
+
+    case "get_checkpoint_detail":
+      return input.checkpoint_id
+        ? `${base} ${input.checkpoint_id}`
+        : base;
+
+    case "search_checkpoints":
+      return input.query ? `${base}: "${input.query}"` : base;
+
+    case "search_lovdata":
+      return input.lovhjemmel
+        ? `${base}: ${input.lovhjemmel}`
+        : base;
+
+    default:
+      return base;
+  }
 }

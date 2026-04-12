@@ -312,7 +312,7 @@ export default function ChatPage({ initialSessionId, initialMessages }: ChatPage
           >
             <PromptInputAttachmentsDisplay />
             <PromptInputBody>
-              <PromptInputTextarea placeholder="Send a message..." />
+              <PromptInputTextarea placeholder="Skriv en melding..." />
             </PromptInputBody>
             <PromptInputFooter>
               <PromptInputTools>

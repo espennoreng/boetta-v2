@@ -55,5 +55,5 @@ export interface AgentModule {
 
   handleToolCall(name: string, input: Record<string, unknown>): Promise<string>;
 
-  getDisplayName(toolName: string): string | null;
+  getDisplayName(toolName: string, input?: Record<string, unknown>): string | null;
 }
