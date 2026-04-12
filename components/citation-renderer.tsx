@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { createContext, useContext, useMemo } from "react";
 import { MessageResponse } from "@/components/ai-elements/message";
 import {
   InlineCitation,
@@ -11,7 +11,63 @@ import {
   InlineCitationSource,
 } from "@/components/ai-elements/inline-citation";
 import type { Citation } from "@/lib/citations";
-import { findCitationsInText, buildCitationRegistry } from "@/lib/citations";
+import {
+  findCitationsInText,
+  buildCitationRegistry,
+  normalizeLovhjemmel,
+} from "@/lib/citations";
+
+// Context to pass citation metadata to the custom link renderer
+const CitationContext = createContext<Map<string, Citation>>(new Map());
+
+/**
+ * Custom <a> component for Streamdown. When a link points to lovdata.no,
+ * renders an InlineCitation hover card. Otherwise renders a normal link.
+ */
+function CitationLink({
+  href,
+  children,
+  ...props
+}: React.AnchorHTMLAttributes<HTMLAnchorElement>) {
+  const registry = useContext(CitationContext);
+
+  if (href?.includes("lovdata.no")) {
+    // Find the citation by URL match
+    let citation: Citation | undefined;
+    for (const c of registry.values()) {
+      if (c.url === href) {
+        citation = c;
+        break;
+      }
+    }
+
+    return (
+      <InlineCitation>
+        <InlineCitationText>{children}</InlineCitationText>
+        <InlineCitationCard>
+          <InlineCitationCardTrigger sources={[href]} />
+          <InlineCitationCardBody>
+            <div className="space-y-2 p-4">
+              <InlineCitationSource
+                title={citation?.checkpoint}
+                url={href}
+                description={citation?.description}
+              />
+            </div>
+          </InlineCitationCardBody>
+        </InlineCitationCard>
+      </InlineCitation>
+    );
+  }
+
+  return (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  );
+}
+
+const citationComponents = { a: CitationLink };
 
 interface CitationRendererProps {
   children: string;
@@ -27,63 +83,37 @@ export function CitationRenderer({
     [citations],
   );
 
-  const matches = useMemo(
-    () => findCitationsInText(text, registry),
-    [text, registry],
-  );
+  const processedText = useMemo(() => {
+    const matches = findCitationsInText(text, registry);
+    if (matches.length === 0) return text;
 
-  if (matches.length === 0) {
-    return <MessageResponse>{text}</MessageResponse>;
-  }
-
-  // Split the text into segments: plain text and citation matches
-  const segments: Array<
-    | { type: "text"; content: string }
-    | { type: "citation"; matchedText: string; citation: Citation }
-  > = [];
-
-  let lastEnd = 0;
-  for (const match of matches) {
-    if (match.start > lastEnd) {
-      segments.push({ type: "text", content: text.slice(lastEnd, match.start) });
+    // Replace matched law references with markdown links (only if they have URLs)
+    let result = "";
+    let lastEnd = 0;
+    for (const match of matches) {
+      if (!match.citation.url) continue;
+      result += text.slice(lastEnd, match.start);
+      result += `[${match.matchedText}](${match.citation.url})`;
+      lastEnd = match.end;
     }
-    segments.push({
-      type: "citation",
-      matchedText: match.matchedText,
-      citation: match.citation,
-    });
-    lastEnd = match.end;
-  }
-  if (lastEnd < text.length) {
-    segments.push({ type: "text", content: text.slice(lastEnd) });
-  }
+    result += text.slice(lastEnd);
+    return result;
+  }, [text, registry]);
+
+  // Build a URL-keyed lookup for the custom link renderer
+  const urlRegistry = useMemo(() => {
+    const map = new Map<string, Citation>();
+    for (const c of registry.values()) {
+      if (c.url) map.set(c.url, c);
+    }
+    return map;
+  }, [registry]);
 
   return (
-    <div>
-      {segments.map((seg, i) => {
-        if (seg.type === "text") {
-          return <MessageResponse key={i}>{seg.content}</MessageResponse>;
-        }
-        return (
-          <InlineCitation key={i}>
-            <InlineCitationText>{seg.matchedText}</InlineCitationText>
-            <InlineCitationCard>
-              <InlineCitationCardTrigger
-                sources={seg.citation.url ? [seg.citation.url] : []}
-              />
-              <InlineCitationCardBody>
-                <div className="p-4 space-y-2">
-                  <InlineCitationSource
-                    title={seg.citation.checkpoint}
-                    url={seg.citation.url || undefined}
-                    description={seg.citation.description}
-                  />
-                </div>
-              </InlineCitationCardBody>
-            </InlineCitationCard>
-          </InlineCitation>
-        );
-      })}
-    </div>
+    <CitationContext.Provider value={urlRegistry}>
+      <MessageResponse components={citationComponents}>
+        {processedText}
+      </MessageResponse>
+    </CitationContext.Provider>
   );
 }
