@@ -169,6 +169,50 @@ RS,ET,ES,NV,TA|1.12|Plan|Foreligger det søknad om dispensasjon?
 
 Generated from the JSON data at build time or startup.
 
+## UI Flow
+
+The existing UI handles the review flow almost entirely as-is. Here's what the case worker sees during a review:
+
+### Step-by-step
+
+1. **Case worker uploads PDF + sends message** — the attachment flow already works via PromptInput + `buildContentBlocks` in agent-manager.ts. PDFs are sent as base64 document blocks.
+
+2. **Shimmer ("Thinking...")** — shows immediately via `agent.thinking` event. Already implemented.
+
+3. **Built-in tool cards (read)** — the agent reads the PDF using built-in tools. These show as `ToolHeader` cards with running → completed state transitions. Already implemented.
+
+4. **Agent streams initial analysis** — identifies søknadstype and tiltakstype from the PDF. Rendered via `MessageResponse` with streaming markdown. Already implemented.
+
+5. **Custom tool cards** — `get_checklist_overview`, `get_checkpoints`, etc. show as tool cards with Norwegian display names (e.g., "Henter sjekkpunkter") and running → completed badges. The tool execution happens server-side, invisible to the browser — the client just sees the card state change.
+
+6. **Agent streams findings** — walks through checkpoints by tema, reports what passes, what's missing, cites legal references. All streamed markdown.
+
+7. **Agent asks questions** — when it can't verify something from the PDF, it asks directly in the conversation. The case worker replies, the agent calls `evaluate_rules` to follow the dependency chain, and continues.
+
+### What already works (no changes)
+
+- Streaming markdown rendering (`MessageResponse`)
+- Shimmer during thinking (`agent.thinking` events)
+- Tool state badges — running/completed transitions (`ToolHeader`)
+- Built-in tools (read, bash) — show as tool cards
+- Multi-turn conversation — case worker replies, agent continues
+- File upload via attachments (`PromptInput` + `buildContentBlocks`)
+
+### What needs minor changes
+
+**Display names in hook** — `use-agent-chat.ts` currently stores `event.name` (e.g., "get_checkpoints") for tool calls. Change to prefer `displayName` when present:
+
+```typescript
+case "tool_use": {
+  // Use displayName from SSE event, fall back to raw name
+  { id: event.id, name: event.displayName ?? event.name, state: "running" }
+}
+```
+
+The `ToolHeader` component already renders whatever `name` it receives — no component changes needed. The `SSEEvent` type in the hook gains one optional field (`displayName?: string`).
+
+`page.tsx` needs no changes.
+
 ## API Route Changes
 
 ### Current behavior
