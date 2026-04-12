@@ -35,10 +35,14 @@ import {
   usePromptInputAttachments,
 } from "@/components/ai-elements/prompt-input";
 import { Tool, ToolHeader, ToolContent, ToolOutput } from "@/components/ai-elements/tool";
+import {
+  Suggestions,
+  Suggestion,
+} from "@/components/ai-elements/suggestion";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { useAgentChat } from "@/hooks/use-agent-chat";
 import type { ChatMessage, ToolCall } from "@/hooks/use-agent-chat";
-import { memo, useCallback } from "react";
+import { memo, useCallback, useMemo } from "react";
 
 interface AttachmentItemProps {
   attachment: {
@@ -139,6 +143,21 @@ function toolStateToUIPart(state: ToolCall["state"]) {
   return state === "running" ? "input-available" : "output-available";
 }
 
+const SVAR_PATTERN = /\[svar:\s*(.+?)\]/g;
+
+function parseAnswerOptions(text: string): {
+  cleanText: string;
+  options: string[];
+} {
+  const options: string[] = [];
+  let match;
+  while ((match = SVAR_PATTERN.exec(text)) !== null) {
+    options.push(match[1].trim());
+  }
+  const cleanText = text.replace(SVAR_PATTERN, "").trimEnd();
+  return { cleanText, options };
+}
+
 export default function ChatPage() {
   const { messages, status, sendMessage } = useAgentChat();
 
@@ -165,6 +184,7 @@ export default function ChatPage() {
                 message={msg}
                 isLast={i === messages.length - 1}
                 isStreaming={status === "streaming"}
+                onSendMessage={sendMessage}
               />
             ))
           )}
@@ -206,10 +226,12 @@ function ChatMessageItem({
   message,
   isLast,
   isStreaming,
+  onSendMessage,
 }: {
   message: ChatMessage;
   isLast: boolean;
   isStreaming: boolean;
+  onSendMessage: (text: string) => void;
 }) {
   if (message.role === "user") {
     return (
@@ -233,6 +255,13 @@ function ChatMessageItem({
   const showInitialLoading = isLast && isStreaming && !hasContent;
   const showThinkingAfterTools =
     isLast && isStreaming && message.isThinking && !message.text;
+
+  const { cleanText, options } = useMemo(
+    () => (message.text ? parseAnswerOptions(message.text) : { cleanText: "", options: [] }),
+    [message.text],
+  );
+
+  const showSuggestions = isLast && !isStreaming && options.length > 0;
 
   return (
     <Message from="assistant">
@@ -260,10 +289,21 @@ function ChatMessageItem({
           Analyserer...
         </Shimmer>
       )}
-      {message.text && (
+      {cleanText && (
         <MessageContent>
-          <MessageResponse>{message.text}</MessageResponse>
+          <MessageResponse>{cleanText}</MessageResponse>
         </MessageContent>
+      )}
+      {showSuggestions && (
+        <Suggestions className="mt-3 flex-wrap gap-2">
+          {options.map((option) => (
+            <Suggestion
+              key={option}
+              suggestion={option}
+              onClick={(text) => onSendMessage(text)}
+            />
+          ))}
+        </Suggestions>
       )}
     </Message>
   );
