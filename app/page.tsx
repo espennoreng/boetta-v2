@@ -21,10 +21,6 @@ import { Button } from "@/components/ui/button";
 import { Send } from "lucide-react";
 import { Tool, ToolHeader } from "@/components/ai-elements/tool";
 import {
-  Reasoning,
-  ReasoningTrigger,
-} from "@/components/ai-elements/reasoning";
-import {
   Suggestions,
   Suggestion,
 } from "@/components/ai-elements/suggestion";
@@ -66,8 +62,13 @@ export default function ChatPage() {
               </Suggestions>
             </ConversationEmptyState>
           ) : (
-            messages.map((msg) => (
-              <ChatMessageItem key={msg.id} message={msg} />
+            messages.map((msg, i) => (
+              <ChatMessageItem
+                key={msg.id}
+                message={msg}
+                isLast={i === messages.length - 1}
+                isStreaming={status === "streaming"}
+              />
             ))
           )}
         </ConversationContent>
@@ -99,7 +100,15 @@ export default function ChatPage() {
   );
 }
 
-function ChatMessageItem({ message }: { message: ChatMessage }) {
+function ChatMessageItem({
+  message,
+  isLast,
+  isStreaming,
+}: {
+  message: ChatMessage;
+  isLast: boolean;
+  isStreaming: boolean;
+}) {
   if (message.role === "user") {
     return (
       <Message from="user">
@@ -108,20 +117,15 @@ function ChatMessageItem({ message }: { message: ChatMessage }) {
     );
   }
 
-  const isStreaming = message.isThinking || false;
-  const hasContent = message.text || message.toolCalls?.length;
+  const hasContent = message.text || (message.toolCalls?.length ?? 0) > 0;
+  const showLoading = isLast && isStreaming && !hasContent;
 
   return (
     <Message from="assistant">
-      {isStreaming && !hasContent && (
-        <Shimmer as="p" className="text-sm text-muted-foreground">
+      {showLoading && (
+        <Shimmer as="p" className="text-sm">
           Thinking...
         </Shimmer>
-      )}
-      {(isStreaming || message.text) && hasContent && (
-        <Reasoning isStreaming={isStreaming}>
-          <ReasoningTrigger />
-        </Reasoning>
       )}
       {message.text && (
         <MessageContent>
