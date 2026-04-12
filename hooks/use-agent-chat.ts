@@ -25,6 +25,7 @@ interface SSEEvent {
   text?: string;
   id?: string;
   name?: string;
+  displayName?: string;
   message?: string;
 }
 
@@ -116,7 +117,7 @@ export function useAgentChat() {
                           ...(msg.toolCalls ?? []),
                           {
                             id: event.id!,
-                            name: event.name!,
+                            name: event.displayName ?? event.name!,
                             state: "running" as const,
                           },
                         ],
