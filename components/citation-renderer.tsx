@@ -43,16 +43,13 @@ function CitationLink({
 
     return (
       <InlineCitation>
-        <a
-          href={href}
-          target="_blank"
-          rel="noreferrer"
-          className="underline decoration-muted-foreground/50 transition-colors group-hover:bg-accent"
-        >
-          {children}
-        </a>
+        <InlineCitationText>{children}</InlineCitationText>
         <InlineCitationCard>
-          <InlineCitationCardTrigger sources={[href]} />
+          <InlineCitationCardTrigger
+            sources={[href]}
+            onClick={() => window.open(href, "_blank")}
+            className="cursor-pointer"
+          />
           <InlineCitationCardBody>
             <div className="space-y-2 p-4">
               <InlineCitationSource
