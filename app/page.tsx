@@ -20,12 +20,27 @@ import {
 import { Button } from "@/components/ui/button";
 import { Send } from "lucide-react";
 import { Tool, ToolHeader } from "@/components/ai-elements/tool";
+import {
+  Reasoning,
+  ReasoningTrigger,
+} from "@/components/ai-elements/reasoning";
+import {
+  Suggestions,
+  Suggestion,
+} from "@/components/ai-elements/suggestion";
+import { Shimmer } from "@/components/ai-elements/shimmer";
 import { useAgentChat } from "@/hooks/use-agent-chat";
 import type { ChatMessage, ToolCall } from "@/hooks/use-agent-chat";
 
 function toolStateToUIPart(state: ToolCall["state"]) {
   return state === "running" ? "input-available" : "output-available";
 }
+
+const SUGGESTIONS = [
+  "Write a Python script that generates Fibonacci numbers",
+  "Explain how async/await works in JavaScript",
+  "Create a simple REST API with Express",
+];
 
 export default function ChatPage() {
   const { messages, status, sendMessage } = useAgentChat();
@@ -39,7 +54,17 @@ export default function ChatPage() {
               title="Chat with Claude"
               description="Send a message to start a conversation."
               icon={<MessageSquare className="size-8" />}
-            />
+            >
+              <Suggestions className="mt-4 justify-center">
+                {SUGGESTIONS.map((s) => (
+                  <Suggestion
+                    key={s}
+                    suggestion={s}
+                    onClick={(text) => sendMessage(text)}
+                  />
+                ))}
+              </Suggestions>
+            </ConversationEmptyState>
           ) : (
             messages.map((msg) => (
               <ChatMessageItem key={msg.id} message={msg} />
@@ -83,8 +108,21 @@ function ChatMessageItem({ message }: { message: ChatMessage }) {
     );
   }
 
+  const isStreaming = message.isThinking || false;
+  const hasContent = message.text || message.toolCalls?.length;
+
   return (
     <Message from="assistant">
+      {isStreaming && !hasContent && (
+        <Shimmer as="p" className="text-sm text-muted-foreground">
+          Thinking...
+        </Shimmer>
+      )}
+      {(isStreaming || message.text) && hasContent && (
+        <Reasoning isStreaming={isStreaming}>
+          <ReasoningTrigger />
+        </Reasoning>
+      )}
       {message.text && (
         <MessageContent>
           <MessageResponse>{message.text}</MessageResponse>

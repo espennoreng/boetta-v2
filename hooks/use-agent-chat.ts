@@ -13,12 +13,13 @@ export interface ChatMessage {
   role: "user" | "assistant";
   text: string;
   toolCalls?: ToolCall[];
+  isThinking?: boolean;
 }
 
 type Status = "idle" | "streaming";
 
 interface SSEEvent {
-  type: "text" | "tool_use" | "tool_result" | "done" | "error";
+  type: "text" | "tool_use" | "tool_result" | "thinking" | "done" | "error";
   text?: string;
   id?: string;
   name?: string;
@@ -42,6 +43,7 @@ export function useAgentChat() {
       role: "assistant",
       text: "",
       toolCalls: [],
+      isThinking: false,
     };
 
     setMessages((prev) => [...prev, userMessage, assistantMessage]);
@@ -79,11 +81,21 @@ export function useAgentChat() {
           const event: SSEEvent = JSON.parse(line.slice(6));
 
           switch (event.type) {
+            case "thinking": {
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === assistantId
+                    ? { ...msg, isThinking: true }
+                    : msg,
+                ),
+              );
+              break;
+            }
             case "text": {
               setMessages((prev) =>
                 prev.map((msg) =>
                   msg.id === assistantId
-                    ? { ...msg, text: msg.text + event.text }
+                    ? { ...msg, text: msg.text + event.text, isThinking: false }
                     : msg,
                 ),
               );
@@ -95,6 +107,7 @@ export function useAgentChat() {
                   msg.id === assistantId
                     ? {
                         ...msg,
+                        isThinking: false,
                         toolCalls: [
                           ...(msg.toolCalls ?? []),
                           {
@@ -127,6 +140,13 @@ export function useAgentChat() {
               break;
             }
             case "done": {
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === assistantId
+                    ? { ...msg, isThinking: false }
+                    : msg,
+                ),
+              );
               setStatus("idle");
               break;
             }

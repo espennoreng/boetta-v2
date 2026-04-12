@@ -30,6 +30,10 @@ export async function POST(request: Request) {
               }
               break;
             }
+            case "agent.thinking": {
+              data = JSON.stringify({ type: "thinking" });
+              break;
+            }
             case "agent.tool_use": {
               data = JSON.stringify({
                 type: "tool_use",
