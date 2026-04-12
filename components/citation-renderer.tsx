@@ -48,6 +48,7 @@ function CitationLink({
             <div className="space-y-2 p-4">
               <InlineCitationSource
                 title={citation?.checkpoint}
+                url={href}
                 description={citation?.description}
               />
             </div>
