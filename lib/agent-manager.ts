@@ -107,8 +107,6 @@ export async function* streamWithToolHandling(
   text: string,
   files: FileUIPart[] = [],
 ): AsyncGenerator<StreamEvent> {
-  const stream = await client.beta.sessions.events.stream(sessionId);
-
   const content = buildContentBlocks(text, files);
 
   await client.beta.sessions.events.send(sessionId, {
@@ -120,76 +118,100 @@ export async function* streamWithToolHandling(
     ],
   });
 
-  for await (const event of stream) {
-    switch (event.type) {
-      case "agent.message": {
-        const msgText = (event as { content: { type: string; text: string }[] }).content
-          .filter((block) => block.type === "text")
-          .map((block) => block.text)
-          .join("");
-        if (msgText) {
-          yield { type: "text", text: msgText };
+  // Loop: each iteration opens a stream and processes events until idle.
+  // If idle is due to requires_action (custom tool), we handle it and loop again.
+  // If idle is end_turn, we're done.
+  while (true) {
+    const stream = await client.beta.sessions.events.stream(sessionId);
+    let shouldContinue = false;
+
+    for await (const event of stream) {
+      switch (event.type) {
+        case "agent.message": {
+          const msgText = (event as { content: { type: string; text: string }[] }).content
+            .filter((block) => block.type === "text")
+            .map((block) => block.text)
+            .join("");
+          if (msgText) {
+            yield { type: "text", text: msgText };
+          }
+          break;
         }
-        break;
+
+        case "agent.thinking": {
+          yield { type: "thinking" };
+          break;
+        }
+
+        case "agent.tool_use": {
+          const toolEvent = event as { id: string; name: string; input: Record<string, unknown> };
+          const displayName = agentModule.getDisplayName(toolEvent.name);
+          yield {
+            type: "tool_use",
+            id: toolEvent.id,
+            name: toolEvent.name,
+            ...(displayName ? { displayName } : {}),
+          };
+          break;
+        }
+
+        case "agent.custom_tool_use": {
+          const customEvent = event as { id: string; name: string; input: Record<string, unknown> };
+          const displayName = agentModule.getDisplayName(customEvent.name);
+
+          yield {
+            type: "tool_use",
+            id: customEvent.id,
+            name: customEvent.name,
+            ...(displayName ? { displayName } : {}),
+          };
+
+          const result = await agentModule.handleToolCall(
+            customEvent.name,
+            customEvent.input,
+          );
+
+          await client.beta.sessions.events.send(sessionId, {
+            events: [
+              {
+                type: "user.custom_tool_result",
+                custom_tool_use_id: customEvent.id,
+                content: [{ type: "text", text: result }],
+              },
+            ],
+          });
+
+          yield { type: "tool_result", id: customEvent.id };
+          break;
+        }
+
+        case "agent.tool_result": {
+          const resultEvent = event as { tool_use_id: string };
+          yield { type: "tool_result", id: resultEvent.tool_use_id };
+          break;
+        }
+
+        case "session.status_idle": {
+          const idleEvent = event as {
+            stop_reason?: { type: string; event_ids?: string[] };
+          };
+          if (idleEvent.stop_reason?.type === "requires_action") {
+            // Custom tool was called — we already handled it above.
+            // Re-open stream to continue receiving events.
+            shouldContinue = true;
+          } else {
+            // end_turn or other — we're done
+            yield { type: "done" };
+            return;
+          }
+          break;
+        }
       }
+    }
 
-      case "agent.thinking": {
-        yield { type: "thinking" };
-        break;
-      }
-
-      case "agent.tool_use": {
-        const toolEvent = event as { id: string; name: string; input: Record<string, unknown> };
-        const displayName = agentModule.getDisplayName(toolEvent.name);
-        yield {
-          type: "tool_use",
-          id: toolEvent.id,
-          name: toolEvent.name,
-          ...(displayName ? { displayName } : {}),
-        };
-        break;
-      }
-
-      case "agent.custom_tool_use": {
-        const customEvent = event as { id: string; name: string; input: Record<string, unknown> };
-        const displayName = agentModule.getDisplayName(customEvent.name);
-
-        yield {
-          type: "tool_use",
-          id: customEvent.id,
-          name: customEvent.name,
-          ...(displayName ? { displayName } : {}),
-        };
-
-        const result = await agentModule.handleToolCall(
-          customEvent.name,
-          customEvent.input,
-        );
-
-        await client.beta.sessions.events.send(sessionId, {
-          events: [
-            {
-              type: "user.custom_tool_result",
-              custom_tool_use_id: customEvent.id,
-              content: [{ type: "text", text: result }],
-            },
-          ],
-        });
-
-        yield { type: "tool_result", id: customEvent.id };
-        break;
-      }
-
-      case "agent.tool_result": {
-        const resultEvent = event as { tool_use_id: string };
-        yield { type: "tool_result", id: resultEvent.tool_use_id };
-        break;
-      }
-
-      case "session.status_idle": {
-        yield { type: "done" };
-        return;
-      }
+    if (!shouldContinue) {
+      yield { type: "done" };
+      return;
     }
   }
 }
