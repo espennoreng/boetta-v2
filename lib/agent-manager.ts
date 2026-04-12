@@ -170,7 +170,7 @@ export async function* streamWithToolHandling(
           events: [
             {
               type: "user.custom_tool_result",
-              tool_use_id: customEvent.id,
+              custom_tool_use_id: customEvent.id,
               content: [{ type: "text", text: result }],
             },
           ],
