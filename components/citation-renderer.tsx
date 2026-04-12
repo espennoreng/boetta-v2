@@ -31,7 +31,7 @@ function CitationLink({
 }: React.AnchorHTMLAttributes<HTMLAnchorElement>) {
   const registry = useContext(CitationContext);
 
-  if (href?.includes("lovdata.no")) {
+  if (href?.includes("lovdata.no") || href?.includes("dibk.no")) {
     const decodedHref = decodeURIComponent(href);
     const citation = registry.get(href) ?? registry.get(decodedHref);
 
