@@ -253,8 +253,7 @@ function ChatMessageItem({
 
   const hasContent = message.text || (message.toolCalls?.length ?? 0) > 0;
   const showInitialLoading = isLast && isStreaming && !hasContent;
-  const showThinkingAfterTools =
-    isLast && isStreaming && message.isThinking && !message.text;
+  const showThinking = isLast && isStreaming && message.isThinking;
 
   const { cleanText, options } = useMemo(
     () => (message.text ? parseAnswerOptions(message.text) : { cleanText: "", options: [] }),
@@ -284,7 +283,7 @@ function ChatMessageItem({
           )}
         </Tool>
       ))}
-      {showThinkingAfterTools && (
+      {showThinking && (
         <Shimmer as="p" className="text-sm">
           Analyserer...
         </Shimmer>
