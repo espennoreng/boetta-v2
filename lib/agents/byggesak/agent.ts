@@ -2,6 +2,7 @@ import type { AgentModule } from "@/lib/agents/types";
 import { byggesakToolDefinitions, handleToolCall as byggesakHandleToolCall } from "./tools";
 import { getDisplayName } from "./display-names";
 import { generateCompactIndex } from "./data";
+import * as registers from "@/lib/agents/norwegian-registers";
 
 const SYSTEM_PROMPT = `Du er en assistent for byggesaksbehandling i norske kommuner. Du hjelper saksbehandlere med å gjennomgå innkomne byggesøknader mot DIBKs nasjonale sjekklister.
 
@@ -78,6 +79,24 @@ Bruk alltid det korte lovnavnet (pbl, SAK10, TEK17) etterfulgt av § og paragraf
 - Bruk evaluate_rules etter å ha samlet svar for sjekkpunkter med betingede regler.
 - Bruk find_checkpoints_by_law for å finne sjekkpunkter som siterer en bestemt lovhjemmel.
 
+## Oppslag i offentlige registre
+
+Før du ber saksbehandleren om faktaopplysninger om eiendommen,
+sjekk om svaret finnes i registrene:
+
+1. Identifiser eiendommen. Les adresse eller gnr/bnr fra søknaden.
+   Hvis uklart, kall resolve_property først.
+2. For spørsmål om flom- eller skredfare, kall nve_check med matrikkel_id
+   fra resolve_property og topic "flom" eller "skred".
+3. Alle funn fra registrene MÅ presenteres med kilde som markdown-lenke:
+   "[NVE Atlas](URL)". Ikke oppgi funn uten kilde.
+4. Registrene er INDIKASJON, ikke avgjørelse. Avslutt slike funn med
+   "– bør bekreftes i kommunens fagsystem".
+5. Hvis et oppslag returnerer error eller findings: null, fall tilbake til
+   å spørre saksbehandleren (som før).
+6. area_mapped: false på flom betyr "ikke kartlagt", ikke "ikke i sone".
+   Rapporter dette presist.
+
 ## Sjekkpunktindeks
 
 `;
@@ -97,16 +116,18 @@ export const byggesakAgent: AgentModule = {
       system: buildSystemPrompt(),
       tools: [
         { type: "agent_toolset_20260401" as const },
+        ...registers.toolDefinitions,
         ...byggesakToolDefinitions,
       ],
     };
   },
 
   async handleToolCall(name: string, input: Record<string, unknown>): Promise<string> {
+    if (registers.ownsTool(name)) return registers.handleToolCall(name, input);
     return byggesakHandleToolCall(name, input);
   },
 
   getDisplayName(toolName: string, input?: Record<string, unknown>): string | null {
-    return getDisplayName(toolName, input);
+    return registers.getDisplayName(toolName, input) ?? getDisplayName(toolName, input);
   },
 };
