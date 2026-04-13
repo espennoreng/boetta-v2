@@ -43,6 +43,8 @@ import { Shimmer } from "@/components/ai-elements/shimmer";
 import { CitationRenderer } from "@/components/citation-renderer";
 import { useAgentChat } from "@/hooks/use-agent-chat";
 import type { ChatMessage, ToolCall, MessagePart } from "@/hooks/use-agent-chat";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { useSessions } from "@/app/agent/_components/sessions-provider";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 interface AttachmentItemProps {
@@ -263,13 +265,35 @@ interface ChatPageProps {
 }
 
 export default function ChatPage({ initialSessionId, initialMessages }: ChatPageProps) {
+  const { refresh, applyTitle, upsertPlaceholder } = useSessions();
+
+  const handleSessionCreated = useCallback(
+    (sessionId: string) => {
+      upsertPlaceholder(sessionId);
+      void refresh();
+    },
+    [refresh, upsertPlaceholder],
+  );
+
+  const handleTitleUpdate = useCallback(
+    (sessionId: string, title: string) => {
+      applyTitle(sessionId, title);
+    },
+    [applyTitle],
+  );
+
   const { messages, status, sendMessage } = useAgentChat({
     initialSessionId,
     initialMessages,
+    onSessionCreated: handleSessionCreated,
+    onTitleUpdate: handleTitleUpdate,
   });
 
   return (
     <div className="flex h-dvh flex-col">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
+        <SidebarTrigger />
+      </header>
       <Conversation className="flex-1">
         <ConversationContent className="mx-auto w-full max-w-3xl">
           {messages.length === 0 ? (
