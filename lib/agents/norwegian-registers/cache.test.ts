@@ -22,4 +22,15 @@ describe("CoordCache", () => {
     expect(cache.get("b")).toBeUndefined();
     expect(cache.get("c")).toBeDefined();
   });
+
+  it("refreshes recency on set for an existing key", () => {
+    const cache = new CoordCache(2);
+    cache.set("a", { utm33: [0, 0] });
+    cache.set("b", { utm33: [0, 0] });
+    cache.set("a", { utm33: [9, 9] });  // update — a becomes MRU
+    cache.set("c", { utm33: [0, 0] });  // evicts b
+    expect(cache.get("a")).toEqual({ utm33: [9, 9] });
+    expect(cache.get("b")).toBeUndefined();
+    expect(cache.get("c")).toBeDefined();
+  });
 });

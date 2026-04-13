@@ -26,13 +26,24 @@ export async function fetchJson<T>(
       const res = await fetchImpl(url, { signal: ctrl.signal });
       clearTimeout(timer);
       if (!res.ok) {
-        lastError = new HttpError(res.status, url, `${res.status} ${res.statusText}`);
-        if (res.status >= 500 && attempt < retries) continue;
-        throw lastError;
+        const body = await res.text().catch(() => "");
+        const suffix = body ? ` — ${body.slice(0, 200)}` : "";
+        const httpErr = new HttpError(
+          res.status,
+          url,
+          `${res.status} ${res.statusText}${suffix}`,
+        );
+        if (res.status >= 500 && attempt < retries) {
+          lastError = httpErr;
+          continue;
+        }
+        throw httpErr;
       }
       return (await res.json()) as T;
     } catch (err) {
       clearTimeout(timer);
+      // HttpError for 4xx/final-5xx bypasses the retry loop.
+      if (err instanceof HttpError) throw err;
       lastError = err;
       if (attempt < retries) continue;
       throw err;
