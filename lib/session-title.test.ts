@@ -34,7 +34,7 @@ describe("generateSessionTitle", () => {
     expect(createMock).toHaveBeenCalledTimes(1);
     const args = createMock.mock.calls[0][0] as { model: string; max_tokens: number };
     expect(args.model).toBe("claude-haiku-4-5-20251001");
-    expect(args.max_tokens).toBeLessThanOrEqual(40);
+    expect(args.max_tokens).toBe(30);
   });
 
   it("strips surrounding quotes and trims whitespace", async () => {
