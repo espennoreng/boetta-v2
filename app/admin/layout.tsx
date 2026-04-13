@@ -9,7 +9,7 @@ export default async function AdminLayout({
   try {
     await requireSuperadmin();
   } catch {
-    redirect("/");
+    redirect("/agent");
   }
 
   return (

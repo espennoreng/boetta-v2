@@ -25,7 +25,7 @@ export default async function PendingPage() {
   await queries.upsertPendingEntitlement(orgId);
   const status = await queries.lookupEntitlementStatus(orgId);
 
-  if (status === "active") redirect("/");
+  if (status === "active") redirect("/agent");
 
   const isSuspended = status === "suspended";
 

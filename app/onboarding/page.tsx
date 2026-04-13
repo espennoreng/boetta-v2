@@ -5,7 +5,7 @@ import { OrganizationList } from "@clerk/nextjs";
 export default async function OnboardingPage() {
   const { userId, orgId } = await auth();
   if (!userId) redirect("/sign-in");
-  if (orgId) redirect("/");
+  if (orgId) redirect("/agent");
 
   return (
     <div className="flex min-h-screen items-center justify-center p-8">

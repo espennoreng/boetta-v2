@@ -48,7 +48,7 @@ export default function RootLayout({
             <div className="fixed top-4 right-4 z-50 flex items-center gap-3">
               <OrganizationSwitcher
                 hidePersonal
-                afterSelectOrganizationUrl="/"
+                afterSelectOrganizationUrl="/agent"
                 afterCreateOrganizationUrl="/pending"
               />
               <UserButton />

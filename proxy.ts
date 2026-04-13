@@ -6,8 +6,12 @@ import { db } from "@/lib/db";
 const queries = makeQueries(db);
 
 const isPublicRoute = createRouteMatcher([
+  "/",
   "/sign-in(.*)",
   "/sign-up(.*)",
+  "/personvern(.*)",
+  "/vilkar(.*)",
+  "/kontakt(.*)",
 ]);
 
 const isOnboardingRoute = createRouteMatcher(["/onboarding(.*)"]);
