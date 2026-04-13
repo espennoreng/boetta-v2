@@ -20,15 +20,24 @@ export async function handleToolCall(
 ): Promise<string> {
   switch (name) {
     case "resolve_property":
-      return JSON.stringify(
-        await resolveProperty({
-          address: input.address as string | undefined,
-          knr: input.knr as string | undefined,
-          gnr: input.gnr as number | undefined,
-          bnr: input.bnr as number | undefined,
-          festenummer: input.festenummer as number | undefined,
-        }),
-      );
+      try {
+        return JSON.stringify(
+          await resolveProperty({
+            address: input.address as string | undefined,
+            knr: input.knr as string | undefined,
+            gnr: input.gnr as number | undefined,
+            bnr: input.bnr as number | undefined,
+            festenummer: input.festenummer as number | undefined,
+          }),
+        );
+      } catch (err) {
+        return JSON.stringify({
+          source: "Kartverket",
+          source_url: "https://ws.geonorge.no/adresser/v1/sok",
+          findings: null,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     case "nve_check":
       return nveCheck({
         matrikkel_id: input.matrikkel_id as string,

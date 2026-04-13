@@ -102,9 +102,10 @@ Both open, no auth.
   gnr?: number,
   bnr?: number,
   festenummer?: number,     // optional
-  seksjonsnummer?: number   // optional
 }
 ```
+
+Note: `seksjonsnummer` (for seksjonerte eiendommer) is deferred to Phase 2 when the first consumer needs it.
 
 **Output (JSON-stringified):**
 
@@ -118,7 +119,6 @@ Both open, no auth.
   kommune: "Oslo",
   kommunenummer: "0301",
   coords_utm33: [east, north],              // EPSG:25833
-  coords_wgs84: [lon, lat],
   objtype: "Vegadresse" | "Matrikkeladresse",
   candidates?: [ /* up to 5 alternatives if address was ambiguous */ ]
 }
@@ -130,7 +130,9 @@ Ambiguity: if the adresser API returns multiple hits, include up to 5 candidates
 
 Point-in-polygon query against NVE's ArcGIS MapServices for flom or skred hazards.
 
-**Backend:** `https://nve.geodataonline.no/arcgis/rest/services/<Service>/MapServer/<layer>/query?geometry=<lon>,<lat>&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=*&f=geojson`
+**Backend:** `https://nve.geodataonline.no/arcgis/rest/services/<Service>/MapServer/<layer>/query?geometry=<east>,<north>&geometryType=esriGeometryPoint&inSR=25833&spatialRel=esriSpatialRelIntersects&outFields=*&f=geojson`
+
+(Coordinates from `resolve_property` are already UTM33 / EPSG:25833; no reprojection needed.)
 
 Hit = `features.length > 0`.
 
@@ -144,7 +146,7 @@ Hit = `features.length > 0`.
 
 ```ts
 {
-  source: "NVE (nve.geodataonline.no)",
+  source: "NVE",
   source_url: "https://atlas.nve.no/...",
   topic: "flom",
   findings: {

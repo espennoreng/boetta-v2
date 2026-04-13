@@ -149,7 +149,7 @@ export async function resolveProperty(
   const cache = deps.cache ?? globalCoordCache;
 
   if (input.address) {
-    const url = `${ADRESSER_URL}?sok=${encodeURIComponent(input.address)}&utkoordsys=25833&treffPerSide=5`;
+    const url = `${ADRESSER_URL}?sok=${encodeURIComponent(input.address)}&utkoordsys=25833&treffPerSide=6`;
     const data = await fetchJson<AdresserResponse>(url, { fetchImpl: deps.fetchImpl });
     const result = parseAdresserResponse(data, url);
     if (!result.candidates) {

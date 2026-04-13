@@ -28,6 +28,13 @@ describe("norwegian-registers module entry", () => {
     expect(parsed.findings).toBeNull();
   });
 
+  it("handleToolCall returns ToolFailure shape when resolve_property is called with no inputs", async () => {
+    const raw = await handleToolCall("resolve_property", {});
+    const parsed = JSON.parse(raw);
+    expect(parsed.findings).toBeNull();
+    expect(parsed.error).toMatch(/address or knr/i);
+  });
+
   it("handleToolCall throws for unknown tool names", async () => {
     await expect(handleToolCall("not_a_tool", {})).rejects.toThrow(/unknown tool/i);
   });
