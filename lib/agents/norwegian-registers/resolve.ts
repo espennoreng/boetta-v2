@@ -100,7 +100,7 @@ export function parseAdresserResponse(
     objtype: head.objtype,
   };
   if (rest.length > 0) {
-    result.candidates = rest.slice(0, 4);
+    result.candidates = rest.slice(0, 5);
   }
   return result;
 }

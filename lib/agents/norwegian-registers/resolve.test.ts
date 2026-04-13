@@ -43,6 +43,26 @@ describe("parseAdresserResponse", () => {
       ),
     ).toThrow(/no address matches/i);
   });
+
+  it("caps candidates at 5 alternatives", () => {
+    const many = {
+      metadata: { totaltAntallTreff: 8 },
+      adresser: Array.from({ length: 8 }, (_, i) => ({
+        adressetekst: `Testgate ${i + 1}`,
+        kommunenummer: "0301",
+        kommunenavn: "Oslo",
+        postnummer: "0154",
+        poststed: "OSLO",
+        gardsnummer: 1,
+        bruksnummer: i + 1,
+        festenummer: 0,
+        objtype: "Vegadresse" as const,
+        representasjonspunkt: { epsg: "EPSG:25833", nord: 0, ost: 0 },
+      })),
+    };
+    const parsed = parseAdresserResponse(many, "https://example");
+    expect(parsed.candidates).toHaveLength(5);
+  });
 });
 
 describe("parseGeokodingResponse", () => {
