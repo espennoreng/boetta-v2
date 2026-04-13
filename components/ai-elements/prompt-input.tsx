@@ -421,7 +421,7 @@ export const PromptInputActionAddAttachments = ({
   const attachments = usePromptInputAttachments();
 
   const handleSelect = useCallback(
-    (e: Event) => {
+    (e: React.SyntheticEvent) => {
       e.preventDefault();
       attachments.openFileDialog();
     },
@@ -429,7 +429,8 @@ export const PromptInputActionAddAttachments = ({
   );
 
   return (
-    <DropdownMenuItem {...props} onSelect={handleSelect}>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    <DropdownMenuItem {...props} onSelect={handleSelect as any}>
       <ImageIcon className="mr-2 size-4" /> {label}
     </DropdownMenuItem>
   );
@@ -449,8 +450,9 @@ export const PromptInputActionAddScreenshot = ({
   const attachments = usePromptInputAttachments();
 
   const handleSelect = useCallback(
-    async (event: Event) => {
-      onSelect?.(event);
+    async (event: React.SyntheticEvent) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      onSelect?.(event as any);
       if (event.defaultPrevented) {
         return;
       }
@@ -474,7 +476,8 @@ export const PromptInputActionAddScreenshot = ({
   );
 
   return (
-    <DropdownMenuItem {...props} onSelect={handleSelect}>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    <DropdownMenuItem {...props} onSelect={handleSelect as any}>
       <Monitor className="mr-2 size-4" />
       {label}
     </DropdownMenuItem>
@@ -1238,7 +1241,8 @@ export const PromptInputSubmit = ({
         onStop();
         return;
       }
-      onClick?.(e);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      onClick?.(e as any);
     },
     [isGenerating, onStop, onClick]
   );
@@ -1313,12 +1317,8 @@ export const PromptInputSelectValue = ({
 
 export type PromptInputHoverCardProps = ComponentProps<typeof HoverCard>;
 
-export const PromptInputHoverCard = ({
-  openDelay = 0,
-  closeDelay = 0,
-  ...props
-}: PromptInputHoverCardProps) => (
-  <HoverCard closeDelay={closeDelay} openDelay={openDelay} {...props} />
+export const PromptInputHoverCard = (props: PromptInputHoverCardProps) => (
+  <HoverCard {...props} />
 );
 
 export type PromptInputHoverCardTriggerProps = ComponentProps<
