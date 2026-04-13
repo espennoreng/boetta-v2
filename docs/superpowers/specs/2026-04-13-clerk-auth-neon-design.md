@@ -13,7 +13,7 @@ Add Clerk-based auth to boetta-v2 with Clerk organizations, a Municipality-vs-Bu
 - **Super-admin:** Clerk user(s) with `publicMetadata.role === "superadmin"`. Controls the `/admin` approval surface and can edit any org's `orgType` at approval time.
 - **Audit trail:** minimal — who signed in, who created/opened a session, who approved/suspended entitlements.
 - **Session visibility:** all members of an org can see all of that org's sessions.
-- **Database:** Neon serverless Postgres, two drivers — HTTP in edge middleware, Pool in Node runtime (for transactions).
+- **Database:** Neon serverless Postgres via a single Drizzle client (`neon-serverless` Pool). Next.js 16 proxy runs on Node runtime, so no separate edge HTTP client is needed.
 - **ORM:** Drizzle with `drizzle-kit` migrations.
 - **Deployment target:** Vercel.
 - **Source-of-truth split:**
@@ -29,14 +29,15 @@ No data is mirrored between Clerk and Neon; Clerk IDs are stored in Neon as plai
 Browser (Clerk cookie)
   │
   ▼
-Next.js middleware (edge runtime)
+Next.js 16 proxy.ts (Node runtime — renamed from "middleware" in v16)
   ├─ clerkMiddleware() — redirect to sign-in if unauthenticated
   ├─ pass-through for /sign-in, /sign-up, /onboarding, /pending, /admin
-  └─ Entitlement gate:
+  └─ Entitlement gate (optimistic):
        if no active org in Clerk session → redirect /onboarding
        SELECT status FROM entitlements WHERE clerk_org_id = ?
          no row    → insert pending, redirect /pending
          not active → redirect /pending
+  (Defense in depth: server components/actions re-check via requireActive())
   │
   ▼
 App routes (Node runtime)
@@ -142,9 +143,9 @@ DATABASE_URL            # Neon pooled connection string
 
 Org creators cannot change `orgType` themselves after onboarding; only the super-admin can, via `/admin`.
 
-## Middleware
+## Proxy (formerly "middleware")
 
-File: `middleware.ts` at project root. Runs on edge runtime.
+File: `proxy.ts` at project root. **Next.js 16 renamed `middleware.ts` → `proxy.ts` and moved it to the Node.js runtime.** The export is still a function; Clerk's `clerkMiddleware()` wraps it. Per Next 16 guidance, proxy performs optimistic checks only; server components and actions re-verify via `requireActive()`.
 
 ```
 export default clerkMiddleware(async (auth, req) => {
@@ -176,7 +177,7 @@ export const config = {
 };
 ```
 
-`lookupEntitlementStatus` uses `drizzle-orm/neon-http`. It returns `"none" | "pending" | "active" | "suspended"`. If `"none"`, the user is redirected to `/pending`; the upsert-to-pending happens from the Node-runtime server action triggered by `/pending`'s first render (or during onboarding org creation).
+`lookupEntitlementStatus` uses the single Drizzle Pool client. It returns `"none" | "pending" | "active" | "suspended"`. If `"none"`, the user is redirected to `/pending`; the upsert-to-pending happens from the server action triggered by `/pending`'s first render (or during onboarding org creation).
 
 ## Admin Surface
 
@@ -223,7 +224,7 @@ Show a "my org's sessions" sidebar: query `session_ownership` where `clerk_org_i
 ## File Layout
 
 ```
-middleware.ts                               — Clerk + entitlement gate
+proxy.ts                                    — Clerk + entitlement gate (Next.js 16 "proxy")
 drizzle.config.ts                           — drizzle-kit config
 drizzle/                                    — generated migrations (committed)
 
@@ -243,8 +244,7 @@ lib/
   auth.ts                                   — getCurrentContext(), requireSuperadmin()
   audit.ts                                  — logEvent()
   db/
-    edge.ts                                 — Drizzle via neon-http (middleware)
-    index.ts                                — Drizzle via neon-serverless Pool (Node)
+    index.ts                                — Drizzle via neon-serverless Pool (used by proxy + Node)
     schema.ts                               — three tables
     queries.ts                              — lookupEntitlementStatus, recordOwnership, etc.
 ```
@@ -276,7 +276,7 @@ Migrations are committed to `drizzle/` and applied via `drizzle-kit migrate` as 
 
 ## Error Handling
 
-- Middleware DB lookup failure → fail closed: render a 503 "service unavailable" page (not `/pending`, which has a specific meaning). Errors are logged to Vercel. Middleware holds a single `neon()` HTTP client; no retry loop — one attempt per request.
+- Proxy DB lookup failure → fail closed: render a 503 "service unavailable" page (not `/pending`, which has a specific meaning). Errors are logged to Vercel. One attempt per request, no retry loop.
 - Anthropic `createSession` succeeds but `session_ownership` insert fails → the Anthropic session is orphaned (no ownership row, inaccessible). Acceptable for MVP; a background reaper can be added later by listing Anthropic sessions and cross-checking ownership.
 - Clerk `publicMetadata` write fails during approval → transaction rolls back the entitlement update; super-admin sees an error toast and can retry.
 - Super-admin gate in `/admin` is checked at both layout and each server action (defense in depth).
