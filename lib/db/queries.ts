@@ -1,4 +1,4 @@
-import { eq, asc, sql } from "drizzle-orm";
+import { eq, asc, desc, and, isNull, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "./schema";
 import { entitlements, sessionOwnership } from "./schema";
@@ -99,6 +99,30 @@ export function makeQueries(db: AnyDb) {
         .where(eq(sessionOwnership.anthropicSessionId, anthropicSessionId))
         .limit(1);
       return row ?? null;
+    },
+
+    async listSessionsForOrg(clerkOrgId: string) {
+      return db
+        .select({
+          anthropicSessionId: sessionOwnership.anthropicSessionId,
+          title: sessionOwnership.title,
+          createdAt: sessionOwnership.createdAt,
+        })
+        .from(sessionOwnership)
+        .where(
+          and(
+            eq(sessionOwnership.clerkOrgId, clerkOrgId),
+            isNull(sessionOwnership.archivedAt),
+          ),
+        )
+        .orderBy(desc(sessionOwnership.createdAt));
+    },
+
+    async updateSessionTitle(anthropicSessionId: string, title: string) {
+      await db
+        .update(sessionOwnership)
+        .set({ title })
+        .where(eq(sessionOwnership.anthropicSessionId, anthropicSessionId));
     },
   };
 }
