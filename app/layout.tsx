@@ -6,6 +6,7 @@ import {
   Show,
   UserButton,
 } from "@clerk/nextjs";
+import { nbNO } from "@clerk/localizations";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
@@ -30,7 +31,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <ClerkProvider>
+    <ClerkProvider localization={nbNO}>
       <html
         lang="en"
         className={cn(
