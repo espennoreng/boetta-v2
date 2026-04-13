@@ -1,0 +1,103 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { OrganizationSwitcher, UserButton } from "@clerk/nextjs";
+import { PlusIcon, MessageSquareIcon } from "lucide-react";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarRail,
+} from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
+import { useSessions } from "./sessions-provider";
+
+export function AgentSidebar() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { sessions, loading } = useSessions();
+
+  return (
+    <Sidebar collapsible="icon">
+      <SidebarHeader>
+        <Button
+          variant="outline"
+          className="w-full justify-start"
+          onClick={() => router.push("/agent")}
+        >
+          <PlusIcon data-icon="inline-start" />
+          Ny samtale
+        </Button>
+      </SidebarHeader>
+
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Samtaler</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {loading && sessions.length === 0 ? (
+                <SidebarMenuItem>
+                  <div className="px-2 py-1 text-muted-foreground text-xs">
+                    Laster…
+                  </div>
+                </SidebarMenuItem>
+              ) : sessions.length === 0 ? (
+                <SidebarMenuItem>
+                  <div className="px-2 py-1 text-muted-foreground text-xs">
+                    Ingen samtaler enda
+                  </div>
+                </SidebarMenuItem>
+              ) : (
+                sessions.map((s) => {
+                  const href = `/agent/${s.id}`;
+                  const isActive = pathname === href;
+                  const label = s.title ?? "Uten tittel";
+                  return (
+                    <SidebarMenuItem key={s.id}>
+                      <SidebarMenuButton
+                        render={<Link href={href} />}
+                        isActive={isActive}
+                        tooltip={label}
+                      >
+                        <MessageSquareIcon />
+                        <span className="truncate">{label}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })
+              )}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+
+      <SidebarFooter>
+        <div className="flex items-center gap-2 px-1 py-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-1">
+          <UserButton />
+          <OrganizationSwitcher
+            hidePersonal
+            afterSelectOrganizationUrl="/agent"
+            afterCreateOrganizationUrl="/pending"
+            appearance={{
+              elements: {
+                rootBox: "flex-1 min-w-0",
+                organizationSwitcherTrigger:
+                  "group-data-[collapsible=icon]:hidden",
+              },
+            }}
+          />
+        </div>
+      </SidebarFooter>
+
+      <SidebarRail />
+    </Sidebar>
+  );
+}
