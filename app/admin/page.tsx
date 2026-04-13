@@ -2,14 +2,39 @@ import { clerkClient } from "@clerk/nextjs/server";
 import { makeQueries } from "@/lib/db/queries";
 import { db } from "@/lib/db";
 import { approveOrg, suspendOrg } from "./actions";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const queries = makeQueries(db);
+
+type Status = "pending" | "active" | "suspended";
+
+const statusVariant: Record<Status, "secondary" | "default" | "destructive"> = {
+  pending: "secondary",
+  active: "default",
+  suspended: "destructive",
+};
 
 export default async function AdminPage() {
   const rows = await queries.listEntitlements();
   const client = await clerkClient();
 
-  // Fetch Clerk org details in parallel
   const orgs = await Promise.all(
     rows.map(async (r) => {
       try {
@@ -26,73 +51,97 @@ export default async function AdminPage() {
   );
 
   return (
-    <table className="w-full text-sm border-collapse">
-      <thead>
-        <tr className="text-left border-b">
-          <th className="py-2">Org</th>
-          <th>Type</th>
-          <th>Status</th>
-          <th>Opprettet</th>
-          <th>Handling</th>
-        </tr>
-      </thead>
-      <tbody>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Organization</TableHead>
+          <TableHead>Type</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead>Created</TableHead>
+          <TableHead className="text-right">Action</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {orgs.map((o) => (
-          <tr key={o.clerkOrgId} className="border-b align-top">
-            <td className="py-2">
+          <TableRow key={o.clerkOrgId}>
+            <TableCell>
               <div className="font-medium">{o.name}</div>
-              <div className="text-xs text-gray-500">{o.clerkOrgId}</div>
-            </td>
-            <td>{o.orgType}</td>
-            <td>{o.status}</td>
-            <td>{o.createdAt.toISOString().slice(0, 10)}</td>
-            <td>
-              <div className="flex gap-2 items-start">
-                {o.status !== "active" && (
-                  <form action={approveOrg}>
-                    <input
-                      type="hidden"
-                      name="clerkOrgId"
-                      value={o.clerkOrgId}
-                    />
-                    <select name="orgType" defaultValue={o.orgType} className="border px-1 text-xs">
-                      <option value="municipality">municipality</option>
-                      <option value="business">business</option>
-                    </select>
-                    <button className="ml-2 px-2 py-1 bg-green-700 text-white rounded text-xs">
-                      Godkjenn
-                    </button>
-                  </form>
-                )}
-                {o.status === "active" && (
-                  <form action={suspendOrg}>
-                    <input
-                      type="hidden"
-                      name="clerkOrgId"
-                      value={o.clerkOrgId}
-                    />
-                    <input
-                      name="notes"
-                      placeholder="Notat"
-                      className="border px-2 py-1 text-xs"
-                    />
-                    <button className="ml-2 px-2 py-1 bg-red-700 text-white rounded text-xs">
-                      Suspender
-                    </button>
-                  </form>
-                )}
+              <div className="text-xs text-muted-foreground">
+                {o.clerkOrgId}
               </div>
-            </td>
-          </tr>
+            </TableCell>
+            <TableCell>{o.orgType}</TableCell>
+            <TableCell>
+              <Badge variant={statusVariant[o.status as Status]}>
+                {o.status}
+              </Badge>
+            </TableCell>
+            <TableCell>{o.createdAt.toISOString().slice(0, 10)}</TableCell>
+            <TableCell>
+              {o.status !== "active" ? (
+                <form
+                  action={approveOrg}
+                  className="flex items-center gap-2 justify-end"
+                >
+                  <input
+                    type="hidden"
+                    name="clerkOrgId"
+                    value={o.clerkOrgId}
+                  />
+                  <Select
+                    name="orgType"
+                    defaultValue={
+                      o.orgType === "municipality" || o.orgType === "business"
+                        ? o.orgType
+                        : "business"
+                    }
+                  >
+                    <SelectTrigger size="sm" className="w-36">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="municipality">Municipality</SelectItem>
+                      <SelectItem value="business">Business</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button type="submit" size="sm">
+                    Approve
+                  </Button>
+                </form>
+              ) : (
+                <form
+                  action={suspendOrg}
+                  className="flex items-center gap-2 justify-end"
+                >
+                  <input
+                    type="hidden"
+                    name="clerkOrgId"
+                    value={o.clerkOrgId}
+                  />
+                  <Input
+                    name="notes"
+                    placeholder="Note"
+                    className="h-8 w-40"
+                  />
+                  <Button type="submit" size="sm" variant="destructive">
+                    Suspend
+                  </Button>
+                </form>
+              )}
+            </TableCell>
+          </TableRow>
         ))}
         {orgs.length === 0 && (
-          <tr>
-            <td colSpan={5} className="py-8 text-center text-gray-500">
-              Ingen organisasjoner ennå.
-            </td>
-          </tr>
+          <TableRow>
+            <TableCell
+              colSpan={5}
+              className="py-8 text-center text-muted-foreground"
+            >
+              No organizations yet.
+            </TableCell>
+          </TableRow>
         )}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   );
 }

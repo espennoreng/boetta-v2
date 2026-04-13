@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
-import { ClerkProvider } from "@clerk/nextjs";
+import { ClerkProvider, Show, UserButton } from "@clerk/nextjs";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
@@ -37,7 +37,14 @@ export default function RootLayout({
           inter.variable,
         )}
       >
-        <body className="min-h-full flex flex-col">{children}</body>
+        <body className="min-h-full flex flex-col">
+          <Show when="signed-in">
+            <div className="fixed top-4 right-4 z-50">
+              <UserButton />
+            </div>
+          </Show>
+          {children}
+        </body>
       </html>
     </ClerkProvider>
   );

@@ -14,7 +14,7 @@ export default async function AdminLayout({
 
   return (
     <div className="mx-auto max-w-5xl p-8">
-      <h1 className="text-2xl font-semibold mb-6">Admin — Godkjenninger</h1>
+      <h1 className="text-2xl font-semibold mb-6">Admin — Approvals</h1>
       {children}
     </div>
   );
