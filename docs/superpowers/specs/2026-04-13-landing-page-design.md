@@ -25,13 +25,16 @@ Move the existing chat app from `/` to `/agent`, and introduce a public Norwegia
 | `app/page.tsx` (ChatPage) | `app/agent/page.tsx` | auth-gated |
 | `app/[sessionId]/page.tsx` | `app/agent/[sessionId]/page.tsx` | auth-gated |
 | — | `app/page.tsx` (new landing) | public |
+| — | `app/personvern/page.tsx` (placeholder) | public |
+| — | `app/vilkar/page.tsx` (placeholder) | public |
+| — | `app/kontakt/page.tsx` (placeholder) | public |
 | `app/sign-in`, `app/sign-up` | unchanged | public |
 | `app/onboarding`, `app/pending`, `app/admin` | unchanged | unchanged |
 | `app/api/*` | unchanged | unchanged |
 
 ### Middleware (`proxy.ts`) changes
 
-- Add `/` (exact match) to `isPublicRoute` so unauthenticated visitors can load the landing page.
+- Add `/`, `/personvern`, `/vilkar`, `/kontakt` to `isPublicRoute` so unauthenticated visitors can load the landing page and its footer pages.
 - Entitlement gate already only triggers for authenticated users with an org, so it won't affect landing-page visitors. A signed-in active user who visits `/` sees the landing page; they can click "Gå til Boetta" to enter `/agent`. This is intentional and fine.
 - No new routes are added to the matcher — the existing matcher already covers `/`.
 
@@ -53,13 +56,13 @@ Sign-up after-URL stays as `/onboarding` (unchanged). After-sign-in URL becomes 
 
 ### Global chrome
 - **Sticky top nav** (h-16, backdrop-blur, border-b)
-  - Left: wordmark **Boetta** (Inter, font-semibold)
-  - Center (md+): anchor links — Hvorfor · Slik fungerer det · Sikkerhet · Kontakt
+  - Left: wordmark **Boetta** (Inter, font-semibold) — link to `/`
+  - Center (md+): anchor links — Hvorfor · Slik fungerer det · Sikkerhet · Kontakt (anchor to `#kontakt` on `/`)
   - Right: `[Logg inn]` (ghost button → `/sign-in`) + `[Kom i gang]` (primary button → `mailto:espennoreng@gmail.com`)
   - Mobile: hamburger collapses center links into a shadcn `Sheet` or simple `DropdownMenu`
 - **Footer** (minimal)
-  - "© 2026 Boetta" + small links: Personvern · Vilkår · Kontakt (mailto)
-  - Footer links can point to `#` placeholders for now; we add real pages later.
+  - "© 2026 Boetta" + small links: Personvern (`/personvern`) · Vilkår (`/vilkar`) · Kontakt (`/kontakt`)
+  - The three footer link targets are real pages (see "Placeholder pages" below).
 
 ### Sections (top to bottom)
 
@@ -129,6 +132,54 @@ Centered CTA band, full-width background tint (muted).
 - **Primary button:** `[Kontakt oss]` → `mailto:espennoreng@gmail.com?subject=Interessert%20i%20Boetta`
 - **Secondary button:** `[Logg inn]` → `/sign-in`
 
+## Placeholder pages
+
+These three pages must exist (so footer links resolve and so nothing looks broken in front of a potential kommune-kunde), but the content is explicitly unfinished. Each page must render a prominent banner making this clear so the owner cannot accidentally ship the placeholder copy to production.
+
+### Shared banner component
+`components/landing/placeholder-banner.tsx` — a bordered shadcn `Alert` with `variant="destructive"`-style accent (yellow/amber, not red — this is a TODO, not an error), containing:
+
+> **Innholdet må erstattes før lansering.** Denne siden er en plassholder generert sammen med landingssiden. Erstatt teksten under med endelig juridisk innhold før produksjon.
+
+The banner is always rendered at the top of each placeholder page. It is NOT removed before the pages ship to staging — removing the banner is a deliberate act the owner takes when replacing the content.
+
+### `app/personvern/page.tsx`
+- H1: *Personvernerklæring*
+- Placeholder banner
+- Short neutral skeleton of typical sections with TODO notes:
+  - **Behandlingsansvarlig** — *TODO: navn og kontaktinformasjon på behandlingsansvarlig.*
+  - **Hvilke opplysninger vi behandler** — *TODO: liste over personopplysninger (navn, e-post, organisasjon, innhold i opplastede søknader, m.m.).*
+  - **Formål og rettslig grunnlag** — *TODO: beskriv formål og hjemmel (databehandleravtale, samtykke, berettiget interesse).*
+  - **Databehandlere** — *Clerk (autentisering), Neon (database, EU-region), Anthropic (AI-modell, zero-data-retention). TODO: fullstendig liste med lenker til underleverandørers vilkår.*
+  - **Lagringstid** — *TODO.*
+  - **Dine rettigheter** — *TODO: innsyn, retting, sletting, klage til Datatilsynet.*
+  - **Kontakt** — *espennoreng@gmail.com*
+- `metadata.title = "Personvern — Boetta"`
+
+### `app/vilkar/page.tsx`
+- H1: *Brukervilkår*
+- Placeholder banner
+- Short neutral skeleton:
+  - **Om tjenesten** — *TODO.*
+  - **Bruk av tjenesten** — *TODO.*
+  - **Ansvarsbegrensning** — *Viktig TODO: Boetta er et beslutningsstøtteverktøy. Endelig vedtak treffes av kvalifisert saksbehandler i kommunen. TODO: formaliser ordlyd.*
+  - **Immaterielle rettigheter** — *TODO.*
+  - **Oppsigelse** — *TODO.*
+  - **Gjeldende rett og verneting** — *Norsk rett. TODO: verneting.*
+- `metadata.title = "Vilkår — Boetta"`
+
+### `app/kontakt/page.tsx`
+- H1: *Kontakt oss*
+- Placeholder banner (marked as "TODO: vurder kontaktskjema eller andre kanaler")
+- Contact info block:
+  - **E-post:** `espennoreng@gmail.com` (rendered as `mailto:` link)
+  - **For kommuner:** *Vi er i tidlig pilot. Send oss en e-post så avtaler vi en demo og går gjennom databehandleravtale.*
+  - **For utbyggere og foretak:** *Ta kontakt hvis dere vil bruke Boetta til å kvalitetssikre søknader før innsending.*
+- No form — just a mailto and prose. A real form can be added later; the placeholder banner flags this.
+- `metadata.title = "Kontakt — Boetta"`
+
+All three pages share a common layout wrapper (`components/landing/placeholder-layout.tsx` — max-w-3xl, py-20, with the nav + footer from the landing page so visual chrome matches). They are server components.
+
 ## Components
 
 All new components live under `components/landing/`:
@@ -172,7 +223,10 @@ The landing page is presentational static content with no business logic. Manual
 
 **New:**
 - `app/page.tsx` (replaces old root page)
-- `components/landing/*.tsx` (10 files as listed above)
+- `app/personvern/page.tsx` (placeholder)
+- `app/vilkar/page.tsx` (placeholder)
+- `app/kontakt/page.tsx` (placeholder)
+- `components/landing/*.tsx` (10 section files + `placeholder-banner.tsx` + `placeholder-layout.tsx`)
 
 **Moved:**
 - `app/page.tsx` → `app/agent/page.tsx`
@@ -192,11 +246,11 @@ The landing page is presentational static content with no business logic. Manual
 
 ## Out of scope
 
-- Contact form with server action (mailto is sufficient)
+- Contact form with server action (placeholder `/kontakt` page uses mailto; a form can be added later when the owner replaces placeholder content)
 - Pricing page
 - Customer logos / testimonials (nothing real yet)
 - Blog / content marketing
 - SEO metadata beyond existing `metadata` export (can be tuned later)
 - Internationalization beyond Norwegian
 - Analytics (no tracking added)
-- Real Personvern/Vilkår pages (footer links point to `#` until written)
+- **Final** Personvern / Vilkår / Kontakt copy — placeholder pages are in scope and ship with a prominent banner, but replacing the placeholder content with real, legally reviewed text is explicitly the owner's responsibility before production launch.
