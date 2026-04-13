@@ -17,7 +17,6 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
 import { useSessions } from "./sessions-provider";
 
 export function AgentSidebar() {
@@ -28,14 +27,17 @@ export function AgentSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        <Button
-          variant="outline"
-          className="w-full justify-start"
-          onClick={() => router.push("/agent")}
-        >
-          <PlusIcon data-icon="inline-start" />
-          Ny samtale
-        </Button>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={() => router.push("/agent")}
+              tooltip="Ny samtale"
+            >
+              <PlusIcon />
+              <span>Ny samtale</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarHeader>
 
       <SidebarContent>
