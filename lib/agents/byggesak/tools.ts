@@ -120,6 +120,22 @@ export const byggesakToolDefinitions: CustomToolDefinition[] = [
       required: ["query"],
     },
   },
+  {
+    type: "custom",
+    name: "find_checkpoints_by_law",
+    description:
+      "Given a law reference (e.g. 'pbl § 21-2', 'SAK10 § 5-4'), return all byggesak checkpoints that cite it. Use to discover which checks are tied to a particular lovhjemmel. This does NOT fetch law text from Lovdata — it reverse-looks-up local checkpoint data.",
+    input_schema: {
+      type: "object",
+      properties: {
+        lovhjemmel: {
+          type: "string",
+          description: "Law reference, e.g. 'pbl § 21-2', 'SAK10 § 5-4'",
+        },
+      },
+      required: ["lovhjemmel"],
+    },
+  },
 ];
 
 export async function handleToolCall(
@@ -168,7 +184,7 @@ export async function handleToolCall(
         ),
       );
 
-    case "search_lovdata":
+    case "find_checkpoints_by_law":
       return JSON.stringify(
         searchLovdata(input.lovhjemmel as string),
       );

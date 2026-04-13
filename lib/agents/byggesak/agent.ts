@@ -1,8 +1,7 @@
 import type { AgentModule } from "@/lib/agents/types";
-import { sharedToolDefinitions } from "@/lib/agents/shared-tools";
 import { byggesakToolDefinitions, handleToolCall as byggesakHandleToolCall } from "./tools";
 import { getDisplayName } from "./display-names";
-import { generateCompactIndex, searchLovdata } from "./data";
+import { generateCompactIndex } from "./data";
 
 const SYSTEM_PROMPT = `Du er en assistent for byggesaksbehandling i norske kommuner. Du hjelper saksbehandlere med å gjennomgå innkomne byggesøknader mot DIBKs nasjonale sjekklister.
 
@@ -77,7 +76,7 @@ Bruk alltid det korte lovnavnet (pbl, SAK10, TEK17) etterfulgt av § og paragraf
 - Bruk get_checkpoint_detail ett sjekkpunkt om gangen, ikke i bulk.
 - Bruk search_checkpoints bare når du ikke kjenner sjekkpunkt-ID eller tema.
 - Bruk evaluate_rules etter å ha samlet svar for sjekkpunkter med betingede regler.
-- Bruk search_lovdata når du diskuterer det rettslige grunnlaget for et krav.
+- Bruk find_checkpoints_by_law for å finne sjekkpunkter som siterer en bestemt lovhjemmel.
 
 ## Sjekkpunktindeks
 
@@ -98,16 +97,12 @@ export const byggesakAgent: AgentModule = {
       system: buildSystemPrompt(),
       tools: [
         { type: "agent_toolset_20260401" as const },
-        ...sharedToolDefinitions,
         ...byggesakToolDefinitions,
       ],
     };
   },
 
   async handleToolCall(name: string, input: Record<string, unknown>): Promise<string> {
-    if (name === "search_lovdata") {
-      return JSON.stringify(searchLovdata(input.lovhjemmel as string));
-    }
     return byggesakHandleToolCall(name, input);
   },
 

@@ -4,7 +4,7 @@ const displayNames: Record<string, string> = {
   get_checkpoint_detail: "Henter detaljer for sjekkpunkt",
   evaluate_rules: "Evaluerer regler",
   search_checkpoints: "Søker i sjekkpunkter",
-  search_lovdata: "Søker i lovhjemler",
+  find_checkpoints_by_law: "Finner sjekkpunkter som siterer lovhjemmel",
 };
 
 export function getDisplayName(
@@ -32,7 +32,7 @@ export function getDisplayName(
     case "search_checkpoints":
       return input.query ? `${base}: "${input.query}"` : base;
 
-    case "search_lovdata":
+    case "find_checkpoints_by_law":
       return input.lovhjemmel
         ? `${base}: ${input.lovhjemmel}`
         : base;
