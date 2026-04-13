@@ -39,7 +39,7 @@ export default function SessionPage({
       <div className="flex h-dvh items-center justify-center">
         <div className="space-y-2 text-center">
           <p className="text-sm text-muted-foreground">{error}</p>
-          <a href="/" className="text-sm underline">
+          <a href="/agent" className="text-sm underline">
             Start a new conversation
           </a>
         </div>
