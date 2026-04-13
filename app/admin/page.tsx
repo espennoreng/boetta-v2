@@ -54,11 +54,11 @@ export default async function AdminPage() {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Organization</TableHead>
+          <TableHead>Organisasjon</TableHead>
           <TableHead>Type</TableHead>
           <TableHead>Status</TableHead>
-          <TableHead>Created</TableHead>
-          <TableHead className="text-right">Action</TableHead>
+          <TableHead>Opprettet</TableHead>
+          <TableHead className="text-right">Handling</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -100,12 +100,12 @@ export default async function AdminPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="municipality">Municipality</SelectItem>
-                      <SelectItem value="business">Business</SelectItem>
+                      <SelectItem value="municipality">Kommune</SelectItem>
+                      <SelectItem value="business">Bedrift</SelectItem>
                     </SelectContent>
                   </Select>
                   <Button type="submit" size="sm">
-                    Approve
+                    Godkjenn
                   </Button>
                 </form>
               ) : (
@@ -120,11 +120,11 @@ export default async function AdminPage() {
                   />
                   <Input
                     name="notes"
-                    placeholder="Note"
+                    placeholder="Notat"
                     className="h-8 w-40"
                   />
                   <Button type="submit" size="sm" variant="destructive">
-                    Suspend
+                    Suspender
                   </Button>
                 </form>
               )}
@@ -137,7 +137,7 @@ export default async function AdminPage() {
               colSpan={5}
               className="py-8 text-center text-muted-foreground"
             >
-              No organizations yet.
+              Ingen organisasjoner ennå.
             </TableCell>
           </TableRow>
         )}

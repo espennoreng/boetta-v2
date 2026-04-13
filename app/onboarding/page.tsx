@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { CreateOrganization } from "@clerk/nextjs";
+import { OrganizationList } from "@clerk/nextjs";
 
 export default async function OnboardingPage() {
   const { userId, orgId } = await auth();
@@ -9,9 +9,11 @@ export default async function OnboardingPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center p-8">
-      <CreateOrganization
-        afterCreateOrganizationUrl="/pending"
+      <OrganizationList
+        hidePersonal
         skipInvitationScreen
+        afterCreateOrganizationUrl="/pending"
+        afterSelectOrganizationUrl="/pending"
       />
     </div>
   );
