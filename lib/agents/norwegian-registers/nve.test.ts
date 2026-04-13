@@ -96,8 +96,14 @@ describe("nve_check topic=skred", () => {
       in_aktsomhetsomrade: true,
       skredtype_kode: 141,
     });
-    expect(parsed.findings.steinsprang.in_utlosningsomrade).toBe(true);
-    expect(parsed.findings.snoskred.in_aktsomhetsomrade).toBe(true);
+    expect(parsed.findings.steinsprang).toEqual({
+      in_utlosningsomrade: true,
+      skredtype: "steinsprang",
+    });
+    expect(parsed.findings.snoskred).toEqual({
+      in_aktsomhetsomrade: true,
+      sikkerhetsklasse: "S2",
+    });
   });
 
   it("reports not-in-zone for all three when no hits", async () => {

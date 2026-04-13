@@ -37,7 +37,7 @@ interface GeoJsonFC {
 }
 
 interface FlomResult {
-  source: string;
+  source: "NVE";
   source_url: string;
   topic: "flom";
   findings: {
@@ -48,7 +48,7 @@ interface FlomResult {
 }
 
 interface SkredResult {
-  source: string;
+  source: "NVE";
   source_url: string;
   topic: "skred";
   findings: {
@@ -110,7 +110,7 @@ async function checkFlom(
   ]);
   const flomsoner = flomsonerResults.filter((x): x is NonNullable<typeof x> => x !== null);
   return {
-    source: "NVE (nve.geodataonline.no)",
+    source: "NVE",
     source_url: NVE_ATLAS,
     topic: "flom",
     findings: {
