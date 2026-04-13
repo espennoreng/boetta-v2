@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
+import { Show, UserButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -39,23 +40,35 @@ export function LandingNav() {
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
-          <Button
-            variant="ghost"
-            size="sm"
-            render={<Link href="/sign-in" />}
-            nativeButton={false}
-          >
-            Logg inn
-          </Button>
-          <Button
-            size="sm"
-            render={
-              <a href="mailto:espennoreng@gmail.com?subject=Interessert%20i%20Boetta" />
-            }
-            nativeButton={false}
-          >
-            Kom i gang
-          </Button>
+          <Show when="signed-out">
+            <Button
+              variant="ghost"
+              size="sm"
+              render={<Link href="/sign-in" />}
+              nativeButton={false}
+            >
+              Logg inn
+            </Button>
+            <Button
+              size="sm"
+              render={
+                <a href="mailto:espennoreng@gmail.com?subject=Interessert%20i%20Boetta" />
+              }
+              nativeButton={false}
+            >
+              Kom i gang
+            </Button>
+          </Show>
+          <Show when="signed-in">
+            <Button
+              size="sm"
+              render={<Link href="/agent" />}
+              nativeButton={false}
+            >
+              Gå til Boetta
+            </Button>
+            <UserButton />
+          </Show>
         </div>
 
         <button
@@ -86,24 +99,38 @@ export function LandingNav() {
             </Link>
           ))}
           <div className="mt-2 flex flex-col gap-2 border-t pt-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="justify-start"
-              render={<Link href="/sign-in" />}
-              nativeButton={false}
-            >
-              Logg inn
-            </Button>
-            <Button
-              size="sm"
-              render={
-                <a href="mailto:espennoreng@gmail.com?subject=Interessert%20i%20Boetta" />
-              }
-              nativeButton={false}
-            >
-              Kom i gang
-            </Button>
+            <Show when="signed-out">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="justify-start"
+                render={<Link href="/sign-in" />}
+                nativeButton={false}
+              >
+                Logg inn
+              </Button>
+              <Button
+                size="sm"
+                render={
+                  <a href="mailto:espennoreng@gmail.com?subject=Interessert%20i%20Boetta" />
+                }
+                nativeButton={false}
+              >
+                Kom i gang
+              </Button>
+            </Show>
+            <Show when="signed-in">
+              <Button
+                size="sm"
+                render={<Link href="/agent" />}
+                nativeButton={false}
+              >
+                Gå til Boetta
+              </Button>
+              <div className="flex justify-start px-3 py-2">
+                <UserButton />
+              </div>
+            </Show>
           </div>
         </nav>
       </div>

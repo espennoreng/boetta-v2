@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { FileUp, ListChecks, ScrollText } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+
+const GRAIN_SVG = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/></svg>")`;
 
 export function Hero() {
   return (
     <section className="border-b bg-gradient-to-b from-muted/40 to-background">
-      <div className="mx-auto grid max-w-6xl gap-12 px-6 py-20 md:grid-cols-2 md:py-28">
+      <div className="mx-auto grid max-w-6xl items-center gap-12 px-6 py-20 md:grid-cols-[1.1fr_1fr] md:py-28">
         <div className="flex flex-col justify-center gap-6">
           <h1 className="text-4xl font-semibold tracking-tight md:text-6xl">
             Byggesaksvurdering som står seg juridisk
@@ -37,40 +37,15 @@ export function Hero() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-3">
-          <Card>
-            <CardContent className="flex items-start gap-4 p-5">
-              <FileUp className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-medium">byggesoknad.pdf</p>
-                <p className="text-xs text-muted-foreground">
-                  RS — Enebolig, ett-trinns søknad
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-start gap-4 p-5">
-              <ListChecks className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-medium">DIBK-sjekkliste matches</p>
-                <p className="text-xs text-muted-foreground">
-                  34 av 47 sjekkpunkter dekket
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-start gap-4 p-5">
-              <ScrollText className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-medium">Vurdering klar</p>
-                <p className="text-xs text-muted-foreground">
-                  Med henvisninger til PBL § 21-2 og SAK10 § 5-4
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="relative aspect-[4/5] overflow-hidden rounded-2xl shadow-xl ring-1 ring-black/5 md:aspect-[3/4]">
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-100 via-stone-300 to-stone-800" />
+          <div className="absolute inset-0 bg-gradient-to-tr from-amber-900/35 via-transparent to-stone-50/20" />
+          {/* Drop a file at public/hero.jpg and uncomment the <img> below to replace the gradient with a real photo. */}
+          {/* <img src="/hero.jpg" alt="Saksbehandler ved arbeidspult" className="absolute inset-0 h-full w-full object-cover" /> */}
+          <div
+            className="pointer-events-none absolute inset-0 opacity-60 mix-blend-overlay"
+            style={{ backgroundImage: GRAIN_SVG }}
+          />
         </div>
       </div>
     </section>

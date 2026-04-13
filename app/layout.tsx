@@ -1,11 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
-import {
-  ClerkProvider,
-  OrganizationSwitcher,
-  Show,
-  UserButton,
-} from "@clerk/nextjs";
+import { ClerkProvider } from "@clerk/nextjs";
 import { nbNO } from "@clerk/localizations";
 import "./globals.css";
 import { cn } from "@/lib/utils";
@@ -43,19 +38,7 @@ export default function RootLayout({
           inter.variable,
         )}
       >
-        <body className="min-h-full flex flex-col">
-          <Show when="signed-in">
-            <div className="fixed top-4 right-4 z-50 flex items-center gap-3">
-              <OrganizationSwitcher
-                hidePersonal
-                afterSelectOrganizationUrl="/agent"
-                afterCreateOrganizationUrl="/pending"
-              />
-              <UserButton />
-            </div>
-          </Show>
-          {children}
-        </body>
+        <body className="min-h-full flex flex-col">{children}</body>
       </html>
     </ClerkProvider>
   );
