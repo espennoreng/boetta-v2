@@ -44,6 +44,28 @@ describe("parseAdresserResponse", () => {
     ).toThrow(/no address matches/i);
   });
 
+  it("includes festenummer in matrikkel_id when > 0", () => {
+    const withFeste = {
+      metadata: { totaltAntallTreff: 1 },
+      adresser: [
+        {
+          adressetekst: "Fjellveien 3",
+          kommunenummer: "4601",
+          kommunenavn: "Bergen",
+          postnummer: "5003",
+          poststed: "BERGEN",
+          gardsnummer: 18,
+          bruksnummer: 5,
+          festenummer: 3,
+          objtype: "Vegadresse" as const,
+          representasjonspunkt: { epsg: "EPSG:25833", nord: 0, ost: 0 },
+        },
+      ],
+    };
+    const parsed = parseAdresserResponse(withFeste, "https://example");
+    expect(parsed.matrikkel_id).toBe("4601-18-5-3");
+  });
+
   it("caps candidates at 5 alternatives", () => {
     const many = {
       metadata: { totaltAntallTreff: 8 },
@@ -78,6 +100,7 @@ describe("parseGeokodingResponse", () => {
     expect(parsed.coords_utm33).toEqual([597345.2, 6643212.8]);
     expect(parsed.objtype).toBe("Matrikkeladresse");
     expect(parsed.address).toBe("");
+    expect(parsed.kommune).toBe("Oslo");
   });
 });
 
@@ -95,6 +118,23 @@ describe("resolveProperty (handler)", () => {
     expect(result.source).toBe("Kartverket");
     expect(result.matrikkel_id).toBe("0301-207-80");
     expect(result.coords_utm33).toEqual([597345.2, 6643212.8]);
+    expect(cache.get("0301-207-80")).toBeUndefined(); // ambiguous — cache not populated
+  });
+
+  it("caches coords only for unambiguous address matches", async () => {
+    const singleHit = {
+      ...adresserSokResponse,
+      metadata: { ...adresserSokResponse.metadata, totaltAntallTreff: 1 },
+      adresser: adresserSokResponse.adresser.slice(0, 1),
+    };
+    const cache = new CoordCache(10);
+    const fakeFetch = (async () =>
+      new Response(JSON.stringify(singleHit), { status: 200 })) as unknown as typeof fetch;
+    const result = await resolveProperty(
+      { address: "Karl Johans gate 1" },
+      { fetchImpl: fakeFetch, cache },
+    );
+    expect(result.candidates).toBeUndefined();
     expect(cache.get("0301-207-80")?.utm33).toEqual([597345.2, 6643212.8]);
   });
 

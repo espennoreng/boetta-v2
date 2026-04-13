@@ -19,7 +19,6 @@ export const resolvePropertyToolDefinition: CustomToolDefinition = {
       gnr: { type: "number", description: "Gardsnummer" },
       bnr: { type: "number", description: "Bruksnummer" },
       festenummer: { type: "number", description: "Festenummer (optional)" },
-      seksjonsnummer: { type: "number", description: "Seksjonsnummer (optional)" },
     },
     required: [],
   },
@@ -47,6 +46,7 @@ export interface GeokodingFeature {
   geometry: { type: "Point"; coordinates: [number, number] };
   properties: {
     kommunenummer: string;
+    kommunenavn?: string;
     gardsnummer: number;
     bruksnummer: number;
     festenummer?: number;
@@ -122,7 +122,7 @@ export function parseGeokodingResponse(
     matrikkel_id: matrikkelId(knr, gnr, bnr, festenr),
     matrikkelnummertekst: feature.properties.matrikkelnummertekst ?? `${gnr}/${bnr}`,
     address: "",
-    kommune: "",
+    kommune: feature.properties.kommunenavn ?? "",
     kommunenummer: knr,
     coords_utm33: [east, north],
     objtype: "Matrikkeladresse",
@@ -135,7 +135,6 @@ export interface ResolveInput {
   gnr?: number;
   bnr?: number;
   festenummer?: number;
-  seksjonsnummer?: number;
 }
 
 export interface ResolveDeps {
@@ -153,7 +152,9 @@ export async function resolveProperty(
     const url = `${ADRESSER_URL}?sok=${encodeURIComponent(input.address)}&utkoordsys=25833&treffPerSide=5`;
     const data = await fetchJson<AdresserResponse>(url, { fetchImpl: deps.fetchImpl });
     const result = parseAdresserResponse(data, url);
-    cache.set(result.matrikkel_id, { utm33: result.coords_utm33 });
+    if (!result.candidates) {
+      cache.set(result.matrikkel_id, { utm33: result.coords_utm33 });
+    }
     return result;
   }
 
@@ -164,6 +165,9 @@ export async function resolveProperty(
       bruksnummer: String(input.bnr),
       utkoordsys: "25833",
     });
+    if (input.festenummer !== undefined && input.festenummer > 0) {
+      params.set("festenummer", String(input.festenummer));
+    }
     const url = `${GEOKODING_URL}?${params.toString()}`;
     const data = await fetchJson<GeokodingResponse>(url, { fetchImpl: deps.fetchImpl });
     const result = parseGeokodingResponse(data, input.knr, input.gnr, input.bnr, url);

@@ -54,6 +54,7 @@ export const eiendomGeokodingResponse: {
     geometry: { type: "Point"; coordinates: [number, number] };
     properties: {
       kommunenummer: string;
+      kommunenavn: string;
       gardsnummer: number;
       bruksnummer: number;
       festenummer: number;
@@ -71,6 +72,7 @@ export const eiendomGeokodingResponse: {
       geometry: { type: "Point", coordinates: [597345.2, 6643212.8] },
       properties: {
         kommunenummer: "0301",
+        kommunenavn: "Oslo",
         gardsnummer: 207,
         bruksnummer: 80,
         festenummer: 0,
