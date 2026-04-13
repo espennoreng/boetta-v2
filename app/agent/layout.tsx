@@ -1,4 +1,6 @@
-import { OrganizationSwitcher, UserButton } from "@clerk/nextjs";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { AgentSidebar } from "./_components/agent-sidebar";
+import { SessionsProvider } from "./_components/sessions-provider";
 
 export default function AgentLayout({
   children,
@@ -6,16 +8,11 @@ export default function AgentLayout({
   children: React.ReactNode;
 }) {
   return (
-    <>
-      <div className="fixed top-4 right-4 z-50 flex items-center gap-3">
-        <OrganizationSwitcher
-          hidePersonal
-          afterSelectOrganizationUrl="/agent"
-          afterCreateOrganizationUrl="/pending"
-        />
-        <UserButton />
-      </div>
-      {children}
-    </>
+    <SessionsProvider>
+      <SidebarProvider>
+        <AgentSidebar />
+        <SidebarInset>{children}</SidebarInset>
+      </SidebarProvider>
+    </SessionsProvider>
   );
 }

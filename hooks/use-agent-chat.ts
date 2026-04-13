@@ -29,7 +29,15 @@ export interface ChatMessage {
 type Status = "idle" | "streaming";
 
 interface SSEEvent {
-  type: "text" | "tool_use" | "tool_result" | "thinking" | "citations" | "done" | "error";
+  type:
+    | "text"
+    | "tool_use"
+    | "tool_result"
+    | "thinking"
+    | "citations"
+    | "session_title"
+    | "done"
+    | "error";
   text?: string;
   id?: string;
   name?: string;
@@ -37,11 +45,15 @@ interface SSEEvent {
   result?: string;
   message?: string;
   citations?: Citation[];
+  sessionId?: string;
+  title?: string;
 }
 
 interface UseAgentChatOptions {
   initialSessionId?: string | null;
   initialMessages?: ChatMessage[];
+  onSessionCreated?: (sessionId: string) => void;
+  onTitleUpdate?: (sessionId: string, title: string) => void;
 }
 
 export function useAgentChat(options: UseAgentChatOptions = {}) {
@@ -84,11 +96,18 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
       });
 
       const newSessionId = response.headers.get("X-Session-Id");
+      const isNewSession =
+        newSessionId !== null && newSessionId !== sessionIdRef.current;
       if (newSessionId) {
         sessionIdRef.current = newSessionId;
-        // Update URL to include session ID so it can be restored
-        if (typeof window !== "undefined" && !window.location.pathname.includes(newSessionId)) {
-          window.history.replaceState(null, "", `/${newSessionId}`);
+        if (
+          typeof window !== "undefined" &&
+          !window.location.pathname.includes(newSessionId)
+        ) {
+          window.history.replaceState(null, "", `/agent/${newSessionId}`);
+        }
+        if (isNewSession) {
+          options.onSessionCreated?.(newSessionId);
         }
       }
 
@@ -200,6 +219,12 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
               );
               break;
             }
+            case "session_title": {
+              if (event.sessionId && event.title) {
+                options.onTitleUpdate?.(event.sessionId, event.title);
+              }
+              break;
+            }
             case "done": {
               setMessages((prev) =>
                 prev.map((msg) =>
@@ -223,7 +248,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
       console.error("Chat error:", error);
       setStatus("idle");
     }
-  }, []);
+  }, [options.onSessionCreated, options.onTitleUpdate]);
 
   return { messages, status, sendMessage };
 }

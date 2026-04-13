@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { sql } from "drizzle-orm";
 import { createTestDb, type TestDb } from "./test-helpers";
 import {
   makeQueries,
@@ -106,6 +107,68 @@ describe("recordSessionOwnership + getSessionOwnership", () => {
   });
 
   it("returns null for unknown session", async () => {
+    expect(await q.getSessionOwnership("sess_missing")).toBeNull();
+  });
+});
+
+describe("listSessionsForOrg", () => {
+  it("returns sessions for the given org, newest first", async () => {
+    await q.recordSessionOwnership({
+      anthropicSessionId: "sess_old",
+      clerkOrgId: "org_a",
+      clerkUserId: "user_1",
+    });
+    // Small delay to ensure distinct created_at; PGlite resolves now() per statement.
+    await new Promise((r) => setTimeout(r, 5));
+    await q.recordSessionOwnership({
+      anthropicSessionId: "sess_new",
+      clerkOrgId: "org_a",
+      clerkUserId: "user_1",
+      title: "Byggesak Bergen",
+    });
+    await q.recordSessionOwnership({
+      anthropicSessionId: "sess_other_org",
+      clerkOrgId: "org_b",
+      clerkUserId: "user_2",
+    });
+
+    const rows = await q.listSessionsForOrg("org_a");
+    expect(rows.map((r) => r.anthropicSessionId)).toEqual(["sess_new", "sess_old"]);
+    expect(rows[0].title).toBe("Byggesak Bergen");
+  });
+
+  it("excludes archived sessions", async () => {
+    await q.recordSessionOwnership({
+      anthropicSessionId: "sess_a",
+      clerkOrgId: "org_a",
+      clerkUserId: "user_1",
+    });
+    await testDb.db.execute(
+      sql`UPDATE session_ownership SET archived_at = now() WHERE anthropic_session_id = 'sess_a'`,
+    );
+    const rows = await q.listSessionsForOrg("org_a");
+    expect(rows).toHaveLength(0);
+  });
+
+  it("returns empty array when org has no sessions", async () => {
+    expect(await q.listSessionsForOrg("org_empty")).toEqual([]);
+  });
+});
+
+describe("updateSessionTitle", () => {
+  it("updates the title for an existing session", async () => {
+    await q.recordSessionOwnership({
+      anthropicSessionId: "sess_1",
+      clerkOrgId: "org_a",
+      clerkUserId: "user_1",
+    });
+    await q.updateSessionTitle("sess_1", "Fradeling av tomt");
+    const row = await q.getSessionOwnership("sess_1");
+    expect(row?.title).toBe("Fradeling av tomt");
+  });
+
+  it("is a no-op for unknown session id", async () => {
+    await q.updateSessionTitle("sess_missing", "x");
     expect(await q.getSessionOwnership("sess_missing")).toBeNull();
   });
 });

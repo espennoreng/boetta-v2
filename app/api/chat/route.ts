@@ -6,6 +6,7 @@ import { requireActive } from "@/lib/auth";
 import { makeQueries } from "@/lib/db/queries";
 import { makeAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
+import { generateSessionTitle } from "@/lib/session-title";
 import type { FileUIPart } from "ai";
 
 const queries = makeQueries(db);
@@ -40,7 +41,6 @@ export async function POST(request: Request) {
     });
     eventForAudit = "session.created";
   } else {
-    // Verify the caller's org owns this session
     const ownership = await queries.getSessionOwnership(sessionId);
     if (!ownership || ownership.clerkOrgId !== ctx.orgId) {
       return new Response(
@@ -58,21 +58,55 @@ export async function POST(request: Request) {
     subjectId: sessionId,
   });
 
+  const isNewSession = eventForAudit === "session.created";
   const encoder = new TextEncoder();
 
   const readable = new ReadableStream({
     async start(controller) {
+      let assistantText = "";
       try {
         for await (const event of streamWithToolHandling(
           sessionId!,
           message,
           files ?? [],
         )) {
+          if (event.type === "text" && typeof event.text === "string") {
+            assistantText += event.text;
+          }
+
+          // Forward every event except `done` — we defer `done` until after
+          // we have optionally emitted `session_title`.
+          if (event.type === "done") break;
+
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify(event)}\n\n`),
           );
-          if (event.type === "done") break;
         }
+
+        // For newly created sessions with a non-empty assistant response,
+        // generate a title via Haiku, persist it, and emit it over SSE.
+        if (isNewSession && assistantText.trim().length > 0) {
+          const title = await generateSessionTitle({
+            userMessage: message,
+            assistantMessage: assistantText,
+          });
+          if (title) {
+            await queries.updateSessionTitle(sessionId!, title);
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  type: "session_title",
+                  sessionId,
+                  title,
+                })}\n\n`,
+              ),
+            );
+          }
+        }
+
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`),
+        );
       } catch (error) {
         const msg = error instanceof Error ? error.message : "Unknown error";
         controller.enqueue(
