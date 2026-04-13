@@ -6,7 +6,7 @@ import {
   getCheckpointDetail,
   evaluateRules,
   searchCheckpoints,
-  searchLovdata,
+  findCheckpointsByLaw,
 } from "./data";
 
 const checklistTypeEnum = [...CHECKLIST_TYPES];
@@ -186,7 +186,7 @@ export async function handleToolCall(
 
     case "find_checkpoints_by_law":
       return JSON.stringify(
-        searchLovdata(input.lovhjemmel as string),
+        findCheckpointsByLaw(input.lovhjemmel as string),
       );
 
     default:

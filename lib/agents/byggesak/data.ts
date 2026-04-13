@@ -103,7 +103,7 @@ export function searchCheckpoints(query: string, type?: ChecklistType) {
   return results;
 }
 
-export function searchLovdata(lovhjemmel: string) {
+export function findCheckpointsByLaw(lovhjemmel: string) {
   const data = loadAll();
   const ref = lovhjemmel.toLowerCase();
   const results: { type: string; Id: string; Navn: string }[] = [];
