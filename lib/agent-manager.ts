@@ -6,6 +6,8 @@ import {
   extractCitationsFromToolResult,
   buildCitationRegistry,
 } from "@/lib/citations";
+import { makeQueries } from "@/lib/db/queries";
+import { db } from "@/lib/db";
 
 const client = new Anthropic();
 
@@ -15,6 +17,7 @@ let cachedAgentId: string | null = null;
 let cachedEnvironmentId: string | null = null;
 
 const agentModule = getAgent(AGENT_TYPE);
+const ownershipQueries = makeQueries(db);
 
 export async function getAgentId(): Promise<string> {
   if (cachedAgentId) return cachedAgentId;
@@ -47,7 +50,11 @@ export async function getEnvironmentId(): Promise<string> {
   return cachedEnvironmentId;
 }
 
-export async function createSession(): Promise<string> {
+export async function createSession(params: {
+  clerkOrgId: string;
+  clerkUserId: string;
+  title?: string;
+}): Promise<string> {
   const [agentId, environmentId] = await Promise.all([
     getAgentId(),
     getEnvironmentId(),
@@ -56,6 +63,18 @@ export async function createSession(): Promise<string> {
   const session = await client.beta.sessions.create({
     agent: agentId,
     environment_id: environmentId,
+    metadata: {
+      clerkOrgId: params.clerkOrgId,
+      clerkUserId: params.clerkUserId,
+    },
+    ...(params.title ? { title: params.title } : {}),
+  });
+
+  await ownershipQueries.recordSessionOwnership({
+    anthropicSessionId: session.id,
+    clerkOrgId: params.clerkOrgId,
+    clerkUserId: params.clerkUserId,
+    title: params.title,
   });
 
   return session.id;
