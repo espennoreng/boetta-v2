@@ -203,6 +203,33 @@ Single deploy, no flag:
 4. `/api/chat` removes the base64 path entirely (no parallel code paths — see project memory: avoid backwards-compat shims).
 5. `experimental.proxyClientMaxBodySize` and `MAX_REQUEST_BODY_BYTES` are dropped back to defaults in the same PR.
 
+## Future work: org-shared file library (sketch, not in MVP)
+
+Out of scope for this spec, but the MVP is intentionally shaped to make this additive. Captured here so we don't paint ourselves into a corner.
+
+**Use case.** A municipality uploads a corpus of standing documents (kommuneplan, reguleringsplaner, vedtekter, skjema). Any session in that org should let the agent discover and pull in a relevant document on its own.
+
+**Storage.** Sibling prefix in the same R2 bucket — no migration:
+```
+org/{orgId}/library/{libraryFileId}/{filename}
+```
+
+**New table `org_files`** (separate from `attachments`; different lifecycle, different permissions). Columns include `id`, `clerk_org_id`, `r2_key`, `mime`, `size`, `original_name`, `title`, `description` (agent-readable), `category`, `tags text[]`, `anthropic_file_id` (nullable), `uploaded_by`, `created_at`, `archived_at`.
+
+**Two agent tools, not one.**
+- `list_shared_files({ category?, query?, tags? })` — returns metadata only.
+- `attach_shared_file({ id })` — server registers the file as a Session Resource (or references its cached `anthropic_file_id`); agent now sees it.
+
+Two tools beats one fused tool because (a) the UI can render an explicit "Agent attached X" card, and (b) the agent can survey 20 candidates before committing to fetch 3.
+
+**System-prompt manifest.** Per session, inject a small preamble listing category names and counts. Without it the agent doesn't know to search.
+
+**Anthropic Files API becomes worth it here.** Per-session attachments re-register every chat — fine. A 30 MB kommuneplan cited in 200 sessions should not. Upload it to the account-level Files API once on first attach, persist the `file_id` on `org_files.anthropic_file_id`, and let `attach_shared_file` short-circuit on subsequent uses. R2 stays the canonical store; `file_id` is a cache.
+
+**Permissions.** Read: any active org member. Write: an org admin role (Clerk-side) — to be defined when this is built.
+
+**Still out of scope even when this lands.** Semantic search / RAG over the library (different feature). Cross-org sharing. Version history.
+
 ## Open question
 
 The exact event/reference shape for citing a Session Resource inside `client.beta.sessions.events.send` — the docs surface confirms the resource lifecycle endpoints but the in-message reference shape needs to be confirmed against `node_modules/@anthropic-ai/sdk` types during planning. If the API turns out to require base64 inline even for resources, fall back to: server fetches from R2 → base64 → existing `image`/`document` content blocks. The R2 + persistence + payload-size wins are unchanged; only the agent-side "resource" gain is contingent.
