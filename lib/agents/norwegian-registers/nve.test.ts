@@ -6,6 +6,9 @@ import {
   emptyCollection,
   aktsomhetHit,
   dekningHit,
+  kvikkleireHit,
+  steinsprangHit,
+  snoskredHit,
 } from "./nve.fixtures";
 
 function primedCache(): CoordCache {
@@ -74,5 +77,38 @@ describe("tool definition", () => {
       properties: { topic: { enum: string[] } };
     };
     expect(schema.properties.topic.enum).toEqual(["flom", "skred"]);
+  });
+});
+
+describe("nve_check topic=skred", () => {
+  it("reports per-hazard aktsomhet status when all three hit", async () => {
+    const fetchImpl = routingFetch([
+      { match: /KvikkleireskredAktsomhet\/MapServer\/0\/query/, body: kvikkleireHit },
+      { match: /SkredSteinAktR\/MapServer\/1\/query/, body: steinsprangHit },
+      { match: /SnoskredAktsomhet\/MapServer\/1\/query/, body: snoskredHit },
+    ]);
+    const raw = await nveCheck(
+      { matrikkel_id: "0301-207-80", topic: "skred" },
+      { fetchImpl, cache: primedCache() },
+    );
+    const parsed = JSON.parse(raw);
+    expect(parsed.findings.kvikkleire).toEqual({
+      in_aktsomhetsomrade: true,
+      skredtype_kode: 141,
+    });
+    expect(parsed.findings.steinsprang.in_utlosningsomrade).toBe(true);
+    expect(parsed.findings.snoskred.in_aktsomhetsomrade).toBe(true);
+  });
+
+  it("reports not-in-zone for all three when no hits", async () => {
+    const fetchImpl = routingFetch([]);
+    const raw = await nveCheck(
+      { matrikkel_id: "0301-207-80", topic: "skred" },
+      { fetchImpl, cache: primedCache() },
+    );
+    const parsed = JSON.parse(raw);
+    expect(parsed.findings.kvikkleire.in_aktsomhetsomrade).toBe(false);
+    expect(parsed.findings.steinsprang.in_utlosningsomrade).toBe(false);
+    expect(parsed.findings.snoskred.in_aktsomhetsomrade).toBe(false);
   });
 });

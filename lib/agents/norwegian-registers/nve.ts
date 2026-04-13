@@ -36,6 +36,28 @@ interface GeoJsonFC {
   features: Array<{ properties?: Record<string, unknown> }>;
 }
 
+interface FlomResult {
+  source: string;
+  source_url: string;
+  topic: "flom";
+  findings: {
+    flomsoner: Array<{ gjentaksintervall: number; layer: string }>;
+    in_aktsomhetsomrade_flom: boolean;
+    area_mapped: boolean;
+  };
+}
+
+interface SkredResult {
+  source: string;
+  source_url: string;
+  topic: "skred";
+  findings: {
+    kvikkleire:  { in_aktsomhetsomrade: true; skredtype_kode: number | null } | { in_aktsomhetsomrade: false };
+    steinsprang: { in_utlosningsomrade: true; skredtype: string | null }    | { in_utlosningsomrade: false };
+    snoskred:    { in_aktsomhetsomrade: true; sikkerhetsklasse: string | null } | { in_aktsomhetsomrade: false };
+  };
+}
+
 function pointQueryUrl(service: string, layerId: number, east: number, north: number): string {
   const params = new URLSearchParams({
     geometry: `${east},${north}`,
@@ -73,7 +95,7 @@ async function checkFlom(
   east: number,
   north: number,
   fetchImpl?: Fetcher,
-): Promise<unknown> {
+): Promise<FlomResult> {
   const flomsonerPromises = FLOMSONE_LAYERS.map(async (l) => {
     const res = await queryLayer("Flomsoner1", l.layer, east, north, fetchImpl);
     if (res.features.length > 0) {
@@ -99,6 +121,52 @@ async function checkFlom(
   };
 }
 
+async function checkSkred(
+  east: number,
+  north: number,
+  fetchImpl?: Fetcher,
+): Promise<SkredResult> {
+  const [kvikkleireRes, steinRes, snoRes] = await Promise.all([
+    queryLayer("KvikkleireskredAktsomhet", 0, east, north, fetchImpl),
+    queryLayer("SkredSteinAktR", 1, east, north, fetchImpl),
+    queryLayer("SnoskredAktsomhet", 1, east, north, fetchImpl),
+  ]);
+
+  const kvikkleireHit = kvikkleireRes.features[0];
+  const kvikkleireProps = kvikkleireHit?.properties ?? {};
+  const kvikkleire: SkredResult["findings"]["kvikkleire"] = kvikkleireHit
+    ? {
+        in_aktsomhetsomrade: true,
+        skredtype_kode: (kvikkleireProps.skredType as number | undefined) ?? null,
+      }
+    : { in_aktsomhetsomrade: false };
+
+  const steinHit = steinRes.features[0];
+  const steinProps = steinHit?.properties ?? {};
+  const steinsprang: SkredResult["findings"]["steinsprang"] = steinHit
+    ? {
+        in_utlosningsomrade: true,
+        skredtype: (steinProps.skredtype as string | undefined) ?? null,
+      }
+    : { in_utlosningsomrade: false };
+
+  const snoHit = snoRes.features[0];
+  const snoProps = snoHit?.properties ?? {};
+  const snoskred: SkredResult["findings"]["snoskred"] = snoHit
+    ? {
+        in_aktsomhetsomrade: true,
+        sikkerhetsklasse: (snoProps.sikkerhetsklasse as string | undefined) ?? null,
+      }
+    : { in_aktsomhetsomrade: false };
+
+  return {
+    source: "NVE",
+    source_url: NVE_ATLAS,
+    topic: "skred",
+    findings: { kvikkleire, steinsprang, snoskred },
+  };
+}
+
 export async function nveCheck(input: NveInput, deps: NveDeps = {}): Promise<string> {
   const cache = deps.cache ?? globalCoordCache;
   const entry = cache.get(input.matrikkel_id);
@@ -118,7 +186,7 @@ export async function nveCheck(input: NveInput, deps: NveDeps = {}): Promise<str
       return JSON.stringify(await checkFlom(east, north, deps.fetchImpl));
     }
     if (input.topic === "skred") {
-      throw new Error("skred not implemented in this task");
+      return JSON.stringify(await checkSkred(east, north, deps.fetchImpl));
     }
     throw new Error(`Unknown topic: ${input.topic}`);
   } catch (err) {
