@@ -34,7 +34,7 @@ export interface AdresseHit {
   bruksnummer: number;
   festenummer?: number;
   objtype: "Vegadresse" | "Matrikkeladresse";
-  representasjonspunkt: { epsg: string; nord: number; ost: number };
+  representasjonspunkt: { epsg: string; lat: number; lon: number };
 }
 
 export interface AdresserResponse {
@@ -75,7 +75,7 @@ function hitToIdentity(h: AdresseHit): PropertyIdentity {
     address: addr,
     kommune: h.kommunenavn,
     kommunenummer: h.kommunenummer,
-    coords_utm33: [h.representasjonspunkt.ost, h.representasjonspunkt.nord],
+    coords_utm33: [h.representasjonspunkt.lon, h.representasjonspunkt.lat],
     objtype: h.objtype,
   };
 }

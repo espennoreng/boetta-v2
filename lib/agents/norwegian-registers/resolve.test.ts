@@ -58,7 +58,7 @@ describe("parseAdresserResponse", () => {
           bruksnummer: 5,
           festenummer: 3,
           objtype: "Vegadresse" as const,
-          representasjonspunkt: { epsg: "EPSG:25833", nord: 0, ost: 0 },
+          representasjonspunkt: { epsg: "EPSG:25833", lat: 0, lon: 0 },
         },
       ],
     };
@@ -79,7 +79,7 @@ describe("parseAdresserResponse", () => {
         bruksnummer: i + 1,
         festenummer: 0,
         objtype: "Vegadresse" as const,
-        representasjonspunkt: { epsg: "EPSG:25833", nord: 0, ost: 0 },
+        representasjonspunkt: { epsg: "EPSG:25833", lat: 0, lon: 0 },
       })),
     };
     const parsed = parseAdresserResponse(many, "https://example");

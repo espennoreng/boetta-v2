@@ -12,7 +12,7 @@ export const adresserSokResponse: {
     bruksnummer: number;
     festenummer: number;
     objtype: "Vegadresse" | "Matrikkeladresse";
-    representasjonspunkt: { epsg: string; nord: number; ost: number };
+    representasjonspunkt: { epsg: string; lat: number; lon: number };
   }>;
 } = {
   metadata: { totaltAntallTreff: 2, treffPerSide: 5, side: 0, viserFra: 0, viserTil: 1 },
@@ -28,7 +28,7 @@ export const adresserSokResponse: {
       bruksnummer: 80,
       festenummer: 0,
       objtype: "Vegadresse",
-      representasjonspunkt: { epsg: "EPSG:25833", nord: 6643212.8, ost: 597345.2 },
+      representasjonspunkt: { epsg: "EPSG:25833", lat: 6643212.8, lon: 597345.2 },
     },
     {
       adressenavn: "Karl Johans gate",
@@ -41,7 +41,7 @@ export const adresserSokResponse: {
       bruksnummer: 81,
       festenummer: 0,
       objtype: "Vegadresse",
-      representasjonspunkt: { epsg: "EPSG:25833", nord: 6643220.0, ost: 597350.0 },
+      representasjonspunkt: { epsg: "EPSG:25833", lat: 6643220.0, lon: 597350.0 },
     },
   ],
 };
