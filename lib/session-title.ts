@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import type { TextBlock } from "@anthropic-ai/sdk/resources/messages/messages";
 
 const client = new Anthropic();
 
@@ -37,7 +38,7 @@ export async function generateSessionTitle(
     });
 
     const textBlock = response.content.find(
-      (b): b is { type: "text"; text: string } => b.type === "text",
+      (b): b is TextBlock => b.type === "text",
     );
     const raw = textBlock?.text ?? "";
     const cleaned = raw.trim().replace(/^["'«»]+|["'«»]+$/g, "").trim();
