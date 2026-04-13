@@ -1,9 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { getAgent } from "@/lib/agents/registry";
 import type { MessagePart } from "@/hooks/use-agent-chat";
+import { requireActive } from "@/lib/auth";
+import { makeQueries } from "@/lib/db/queries";
+import { db } from "@/lib/db";
 
 const client = new Anthropic();
 const agentModule = getAgent("byggesak");
+const queries = makeQueries(db);
 
 interface ReconstructedMessage {
   id: string;
@@ -23,6 +27,22 @@ export async function GET(
   { params }: { params: Promise<{ sessionId: string }> },
 ) {
   const { sessionId } = await params;
+
+  let ctx;
+  try {
+    ctx = await requireActive();
+  } catch (err) {
+    const status = err instanceof Error && err.name === "NotActiveError" ? 403 : 401;
+    return Response.json(
+      { error: err instanceof Error ? err.message : "Unauthorized" },
+      { status },
+    );
+  }
+
+  const ownership = await queries.getSessionOwnership(sessionId);
+  if (!ownership || ownership.clerkOrgId !== ctx.orgId) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   try {
     const session = await client.beta.sessions.retrieve(sessionId);
