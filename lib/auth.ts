@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { makeQueries } from "./db/queries";
 import { db } from "./db";
 
@@ -69,14 +69,18 @@ export async function requireActive(): Promise<CurrentContext> {
 
 /**
  * Asserts the caller is a superadmin. Throws NotSuperadminError otherwise.
+ *
+ * Reads publicMetadata via the Clerk backend API rather than sessionClaims,
+ * so it works without a custom JWT template. One extra API call per check;
+ * acceptable for the admin surface.
  */
 export async function requireSuperadmin(): Promise<{ userId: string }> {
-  const { userId, sessionClaims } = await auth();
+  const { userId } = await auth();
   if (!userId) throw new NotAuthenticatedError();
-  const publicMetadata = (sessionClaims?.publicMetadata ?? {}) as Record<
-    string,
-    unknown
-  >;
-  if (!isSuperadmin(publicMetadata)) throw new NotSuperadminError();
+  const client = await clerkClient();
+  const user = await client.users.getUser(userId);
+  if (!isSuperadmin(user.publicMetadata as Record<string, unknown>)) {
+    throw new NotSuperadminError();
+  }
   return { userId };
 }
