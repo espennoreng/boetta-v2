@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { existsSync, readFileSync } from "node:fs";
-import { getAgent } from "@/lib/agents/registry";
+import { getAgent, listAgentTypes, agentEnvVarFor } from "@/lib/agents/registry";
 
 if (existsSync(".env.local")) {
   for (const line of readFileSync(".env.local", "utf8").split("\n")) {
@@ -9,16 +9,15 @@ if (existsSync(".env.local")) {
   }
 }
 
-const AGENT_TYPE = "kommune-byggesak-saksbehandler";
-
 const client = new Anthropic();
 
-async function syncAgent(): Promise<string> {
-  const config = getAgent(AGENT_TYPE).createAgentConfig();
+async function syncAgent(slug: string): Promise<{ envVar: string; id: string }> {
+  const envVar = agentEnvVarFor(slug);
+  const config = getAgent(slug).createAgentConfig();
   const tools = config.tools as Parameters<
     typeof client.beta.agents.create
   >[0]["tools"];
-  const existingId = process.env.ANTHROPIC_AGENT_ID;
+  const existingId = process.env[envVar];
 
   if (!existingId) {
     const agent = await client.beta.agents.create({
@@ -27,9 +26,8 @@ async function syncAgent(): Promise<string> {
       system: config.system,
       tools,
     });
-    console.log(`✓ Created agent ${agent.id} (v${agent.version})`);
-    console.log(`  Add to .env.local: ANTHROPIC_AGENT_ID=${agent.id}`);
-    return agent.id;
+    console.log(`✓ Created agent ${slug}: ${agent.id} (v${agent.version})`);
+    return { envVar, id: agent.id };
   }
 
   const current = await client.beta.agents.retrieve(existingId);
@@ -41,28 +39,24 @@ async function syncAgent(): Promise<string> {
     tools,
   });
   console.log(
-    `✓ Updated agent ${updated.id} (v${current.version} → v${updated.version})`,
+    `✓ Updated agent ${slug}: ${updated.id} (v${current.version} → v${updated.version})`,
   );
-  return updated.id;
+  return { envVar, id: updated.id };
 }
 
 async function syncEnvironment(): Promise<string> {
   const existingId = process.env.ANTHROPIC_ENVIRONMENT_ID;
-
   if (existingId) {
     await client.beta.environments.retrieve(existingId);
     console.log(`✓ Environment ${existingId} exists`);
     return existingId;
   }
-
   const environment = await client.beta.environments.create({
-    name: `${AGENT_TYPE}-env`,
+    name: "boetta-shared-env",
     config: { type: "cloud", networking: { type: "unrestricted" } },
   });
   console.log(`✓ Created environment ${environment.id}`);
-  console.log(
-    `  Add to .env.local: ANTHROPIC_ENVIRONMENT_ID=${environment.id}`,
-  );
+  console.log(`  Add to .env.local: ANTHROPIC_ENVIRONMENT_ID=${environment.id}`);
   return environment.id;
 }
 
@@ -70,8 +64,17 @@ async function main() {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("ANTHROPIC_API_KEY not set");
   }
-  await syncAgent();
   await syncEnvironment();
+
+  const results: Array<{ envVar: string; id: string }> = [];
+  for (const slug of listAgentTypes()) {
+    results.push(await syncAgent(slug));
+  }
+
+  console.log("\n# Copy into .env.local\n");
+  for (const { envVar, id } of results) {
+    console.log(`${envVar}=${id}`);
+  }
 }
 
 main().catch((err) => {
