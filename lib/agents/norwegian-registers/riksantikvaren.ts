@@ -1,5 +1,8 @@
 // lib/agents/norwegian-registers/riksantikvaren.ts
 import type { CustomToolDefinition } from "@/lib/agents/types";
+import type { Fetcher, ToolFailure } from "./types";
+import { fetchJson } from "./http";
+import { CoordCache, globalCoordCache } from "./cache";
 
 export const RA_BASE =
   "https://kart.ra.no/arcgis/rest/services/Distribusjon/Kulturminner20180301/MapServer";
@@ -31,10 +34,6 @@ export const riksantikvarenCheckToolDefinition: CustomToolDefinition = {
     required: ["matrikkel_id"],
   },
 };
-
-import type { Fetcher, ToolFailure } from "./types";
-import { fetchJson } from "./http";
-import { CoordCache, globalCoordCache } from "./cache";
 
 export interface RaInput {
   matrikkel_id: string;
@@ -171,12 +170,12 @@ export async function riksantikvarenCheck(
     tryLayer(RA_LAYERS.kulturmiljoer),
   ]);
 
-  if (partial_errors.length === 6) {
+  if (partial_errors.length === Object.keys(RA_LAYERS).length) {
     const failure: ToolFailure = {
       source: "Riksantikvaren",
       source_url: sourceUrl,
       findings: null,
-      error: `All 6 layers failed: ${partial_errors.join("; ")}`,
+      error: `All ${Object.keys(RA_LAYERS).length} layers failed: ${partial_errors.join("; ")}`,
     };
     return JSON.stringify(failure);
   }
