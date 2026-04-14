@@ -38,6 +38,7 @@ export const sessionOwnership = pgTable(
     clerkOrgId: text("clerk_org_id").notNull(),
     clerkUserId: text("clerk_user_id").notNull(),
     title: text("title"),
+    agentType: text("agent_type").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .default(sql`now()`),
