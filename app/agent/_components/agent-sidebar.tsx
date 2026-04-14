@@ -16,6 +16,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { useSessions } from "./sessions-provider";
 
@@ -23,6 +24,8 @@ export function AgentSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { sessions, loading } = useSessions();
+  const { state, isMobile } = useSidebar();
+  const isCollapsed = state === "collapsed" && !isMobile;
 
   return (
     <Sidebar collapsible="icon">
@@ -84,18 +87,22 @@ export function AgentSidebar() {
       <SidebarFooter>
         <div className="flex items-center gap-2 px-1 py-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-1">
           <UserButton />
-          <OrganizationSwitcher
-            hidePersonal
-            afterSelectOrganizationUrl="/agent"
-            afterCreateOrganizationUrl="/pending"
-            appearance={{
-              elements: {
-                rootBox: "flex-1 min-w-0",
-                organizationSwitcherTrigger:
-                  "group-data-[collapsible=icon]:hidden",
-              },
-            }}
-          />
+          {!isCollapsed && (
+            <OrganizationSwitcher
+              hidePersonal
+              afterSelectOrganizationUrl="/agent"
+              afterCreateOrganizationUrl="/pending"
+              appearance={{
+                elements: {
+                  rootBox: "flex-1 min-w-0",
+                  organizationSwitcherTrigger: "w-full min-w-0",
+                  organizationPreview: "min-w-0",
+                  organizationPreviewTextContainer: "min-w-0",
+                  organizationPreviewMainIdentifier: "truncate",
+                },
+              }}
+            />
+          )}
         </div>
       </SidebarFooter>
 
