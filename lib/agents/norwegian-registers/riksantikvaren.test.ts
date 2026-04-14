@@ -16,7 +16,15 @@ describe("tool definition", () => {
 
 import { riksantikvarenCheck } from "./riksantikvaren";
 import { CoordCache } from "./cache";
-import { emptyCollection } from "./riksantikvaren.fixtures";
+import {
+  emptyCollection,
+  lokaliteterHit,
+  enkeltminnerHit,
+  sikringssonerHit,
+  fredeteBygJHit,
+  sefrakBygJHit,
+  kulturmiljoerHit,
+} from "./riksantikvaren.fixtures";
 
 function primedCache(): CoordCache {
   const c = new CoordCache(10);
@@ -44,6 +52,61 @@ describe("riksantikvaren_check", () => {
     expect(parsed.findings.fredete_bygg).toEqual([]);
     expect(parsed.findings.sefrak_bygg).toEqual([]);
     expect(parsed.findings.kulturmiljoer).toEqual([]);
+    expect(parsed.findings.partial_errors).toBeUndefined();
+  });
+});
+
+function routingFetch(
+  routes: Array<{ match: RegExp; body: unknown }>,
+): typeof fetch {
+  return (async (url: string) => {
+    const route = routes.find((r) => r.match.test(url));
+    if (!route) return new Response(JSON.stringify(emptyCollection), { status: 200 });
+    return new Response(JSON.stringify(route.body), { status: 200 });
+  }) as unknown as typeof fetch;
+}
+
+describe("riksantikvaren_check — all layers hit", () => {
+  it("returns pruned attributes and has_any: true when every layer hits", async () => {
+    const fetchImpl = routingFetch([
+      { match: /MapServer\/7\/query/, body: lokaliteterHit },
+      { match: /MapServer\/6\/query/, body: enkeltminnerHit },
+      { match: /MapServer\/8\/query/, body: sikringssonerHit },
+      { match: /MapServer\/1\/query/, body: fredeteBygJHit },
+      { match: /MapServer\/2\/query/, body: sefrakBygJHit },
+      { match: /MapServer\/15\/query/, body: kulturmiljoerHit },
+    ]);
+    const raw = await riksantikvarenCheck(
+      { matrikkel_id: "4601-207-80" },
+      { fetchImpl, cache: primedCache() },
+    );
+    const parsed = JSON.parse(raw);
+    expect(parsed.findings.has_any).toBe(true);
+    expect(parsed.findings.lokaliteter).toEqual([
+      {
+        navn: "Bryggen",
+        vernetype: "Fredet",
+        vernelov: "Kulturminneloven",
+        verneparagraf: "§ 15",
+        link_askeladden: "https://askeladden.ra.no/lokalitet/45765",
+      },
+    ]);
+    expect(parsed.findings.enkeltminner[0].navn).toBe("Bryggen — bygning nr. 12");
+    expect(parsed.findings.sikringssoner).toEqual([
+      {
+        lokalitet_id: "45765",
+        link_askeladden: "https://askeladden.ra.no/lokalitet/45765",
+      },
+    ]);
+    expect(parsed.findings.fredete_bygg[0].navn).toBe("Bryggen, Jacobsfjorden");
+    expect(parsed.findings.sefrak_bygg).toEqual([
+      {
+        hustype: "Bolighus",
+        datering: "Før 1850",
+        link_askeladden: "https://askeladden.ra.no/sefrak/99887",
+      },
+    ]);
+    expect(parsed.findings.kulturmiljoer[0].navn).toBe("Bergen historiske havneområde");
     expect(parsed.findings.partial_errors).toBeUndefined();
   });
 });
