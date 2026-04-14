@@ -1,5 +1,5 @@
 import { clerkClient } from "@clerk/nextjs/server";
-import { forbidden, redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requireActive } from "@/lib/auth";
 import { allowedAgentsFor, type OrgType } from "@/lib/agents/registry";
 import { makeQueries } from "@/lib/db/queries";
@@ -34,5 +34,5 @@ export default async function NewSessionPage({
     redirect(`/agent/${ownership.agentType}/${slug}`);
   }
 
-  forbidden();
+  notFound();
 }
