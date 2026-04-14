@@ -89,7 +89,13 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
         typeof window !== "undefined" &&
         !window.location.pathname.includes(newSessionId)
       ) {
-        window.history.replaceState(null, "", `/agent/${newSessionId}`);
+        window.history.replaceState(
+          {},
+          "",
+          options.agentType
+            ? `/agent/${options.agentType}/${newSessionId}`
+            : `/agent/${newSessionId}`,
+        );
       }
       options.onSessionCreated?.(newSessionId);
       return newSessionId;
@@ -165,7 +171,13 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
           typeof window !== "undefined" &&
           !window.location.pathname.includes(newSessionId)
         ) {
-          window.history.replaceState(null, "", `/agent/${newSessionId}`);
+          window.history.replaceState(
+            {},
+            "",
+            options.agentType
+              ? `/agent/${options.agentType}/${newSessionId}`
+              : `/agent/${newSessionId}`,
+          );
         }
         if (isNewSession) {
           options.onSessionCreated?.(newSessionId);
@@ -320,7 +332,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
         ),
       );
     }
-  }, [options.onSessionCreated, options.onTitleUpdate]);
+  }, [options.onSessionCreated, options.onTitleUpdate, options.agentType]);
 
   const stopMessage = useCallback(async () => {
     const controller = abortControllerRef.current;
