@@ -67,6 +67,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
   const [sessionId, setSessionId] = useState<string | null>(
     options.initialSessionId ?? null,
   );
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const sendMessage = useCallback(async (text: string, attachmentIds: string[] = [], attachmentNames: string[] = []) => {
     const userMessage: ChatMessage = {
@@ -87,6 +88,9 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
     setMessages((prev) => [...prev, userMessage, assistantMessage]);
     setStatus("streaming");
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -96,6 +100,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
           sessionId: sessionIdRef.current,
           ...(attachmentIds.length > 0 ? { attachmentIds } : {}),
         }),
+        signal: controller.signal,
       });
 
       const newSessionId = response.headers.get("X-Session-Id");
@@ -249,12 +254,48 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
         }
       }
     } catch (error) {
-      console.error("Chat error:", error);
+      if (!(error instanceof DOMException && error.name === "AbortError")) {
+        console.error("Chat error:", error);
+      }
       setStatus("idle");
+    } finally {
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantId ? { ...msg, isThinking: false } : msg,
+        ),
+      );
     }
   }, [options.onSessionCreated, options.onTitleUpdate]);
 
-  return { messages, status, sendMessage, sessionId };
+  const stopMessage = useCallback(async () => {
+    const controller = abortControllerRef.current;
+    const currentSessionId = sessionIdRef.current;
+
+    controller?.abort();
+    abortControllerRef.current = null;
+
+    if (!currentSessionId) {
+      setStatus("idle");
+      return;
+    }
+
+    try {
+      await fetch("/api/chat/interrupt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: currentSessionId }),
+      });
+    } catch (error) {
+      console.error("Interrupt failed:", error);
+    } finally {
+      setStatus("idle");
+    }
+  }, []);
+
+  return { messages, status, sendMessage, stopMessage, sessionId };
 }
 
 export type { Citation } from "@/lib/citations";

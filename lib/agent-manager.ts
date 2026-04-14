@@ -53,6 +53,12 @@ export async function getEnvironmentId(): Promise<string> {
   return cachedEnvironmentId;
 }
 
+export async function interruptSession(sessionId: string): Promise<void> {
+  await client.beta.sessions.events.send(sessionId, {
+    events: [{ type: "user.interrupt" }],
+  });
+}
+
 export async function createSession(params: {
   clerkOrgId: string;
   clerkUserId: string;

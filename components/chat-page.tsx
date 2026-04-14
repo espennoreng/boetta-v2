@@ -287,7 +287,7 @@ export default function ChatPage({ initialSessionId, initialMessages }: ChatPage
     [applyTitle],
   );
 
-  const { messages, status, sendMessage, sessionId } = useAgentChat({
+  const { messages, status, sendMessage, stopMessage, sessionId } = useAgentChat({
     initialSessionId,
     initialMessages,
     onSessionCreated: handleSessionCreated,
@@ -357,6 +357,7 @@ export default function ChatPage({ initialSessionId, initialMessages }: ChatPage
               </PromptInputTools>
               <PromptInputSubmit
                 status={status === "streaming" ? "streaming" : "ready"}
+                onStop={stopMessage}
               />
             </PromptInputFooter>
           </PromptInput>
