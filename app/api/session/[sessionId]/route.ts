@@ -220,3 +220,59 @@ export async function GET(
     return Response.json({ error: msg }, { status: 500 });
   }
 }
+
+const MAX_TITLE_LENGTH = 120;
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ sessionId: string }> },
+) {
+  const { sessionId } = await params;
+
+  let ctx;
+  try {
+    ctx = await requireActive();
+  } catch (err) {
+    const status = err instanceof Error && err.name === "NotActiveError" ? 403 : 401;
+    return Response.json(
+      { error: err instanceof Error ? err.message : "Unauthorized" },
+      { status },
+    );
+  }
+
+  const ownership = await queries.getSessionOwnership(sessionId);
+  if (!ownership || ownership.clerkOrgId !== ctx.orgId) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const rawTitle =
+    body && typeof body === "object" && "title" in body
+      ? (body as { title: unknown }).title
+      : undefined;
+
+  if (typeof rawTitle !== "string") {
+    return Response.json({ error: "title must be a string" }, { status: 400 });
+  }
+
+  const title = rawTitle.trim();
+  if (title.length === 0) {
+    return Response.json({ error: "title must not be empty" }, { status: 400 });
+  }
+  if (title.length > MAX_TITLE_LENGTH) {
+    return Response.json(
+      { error: `title must be ${MAX_TITLE_LENGTH} characters or fewer` },
+      { status: 400 },
+    );
+  }
+
+  await queries.updateSessionTitle(sessionId, title);
+
+  return Response.json({ title });
+}

@@ -21,6 +21,7 @@ interface SessionsContextValue {
   refresh: () => Promise<void>;
   applyTitle: (sessionId: string, title: string) => void;
   upsertPlaceholder: (sessionId: string) => void;
+  renameSession: (sessionId: string, title: string) => Promise<void>;
 }
 
 const SessionsContext = createContext<SessionsContextValue | null>(null);
@@ -46,6 +47,30 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  const renameSession = useCallback(
+    async (sessionId: string, title: string) => {
+      const trimmed = title.trim();
+      if (trimmed.length === 0) return;
+      const prev = sessions;
+      setSessions((list) =>
+        list.map((s) => (s.id === sessionId ? { ...s, title: trimmed } : s)),
+      );
+      const res = await fetch(`/api/session/${sessionId}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ title: trimmed }),
+      });
+      if (!res.ok) {
+        setSessions(prev);
+        const data = (await res.json().catch(() => null)) as
+          | { error?: string }
+          | null;
+        throw new Error(data?.error ?? "Kunne ikke endre tittel");
+      }
+    },
+    [sessions],
+  );
+
   const upsertPlaceholder = useCallback((sessionId: string) => {
     setSessions((prev) => {
       if (prev.some((s) => s.id === sessionId)) return prev;
@@ -62,7 +87,14 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
 
   return (
     <SessionsContext.Provider
-      value={{ sessions, loading, refresh, applyTitle, upsertPlaceholder }}
+      value={{
+        sessions,
+        loading,
+        refresh,
+        applyTitle,
+        upsertPlaceholder,
+        renameSession,
+      }}
     >
       {children}
     </SessionsContext.Provider>
