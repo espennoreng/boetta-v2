@@ -15,8 +15,8 @@ const promptFragment = `## Verktøybruk
 - Bruk evaluate_rules etter å ha samlet svar for sjekkpunkter med betingede regler.
 - Bruk find_checkpoints_by_law for å finne sjekkpunkter som siterer en bestemt lovhjemmel.`;
 
-export const byggesakToolBundle: ToolBundle = {
-  id: "byggesak-checklists",
+export const dibkChecklistsToolBundle: ToolBundle = {
+  id: "dibk-checklists",
   definitions: byggesakToolDefinitions,
   ownsTool: (name) => toolNames.has(name),
   handleToolCall: byggesakHandleToolCall,

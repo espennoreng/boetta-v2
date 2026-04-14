@@ -4,12 +4,12 @@ import { answerChipsFragment } from "@/lib/agents/shared/prompt-fragments/answer
 import { findingsTableFragment } from "@/lib/agents/shared/prompt-fragments/findings-table";
 import { lawCitationsFragment } from "@/lib/agents/shared/prompt-fragments/law-citations";
 import { norwegianRegisters } from "@/lib/agents/norwegian-registers";
-import { byggesakToolBundle } from "./tool-bundle";
-import { generateCompactIndex } from "./data";
+import { dibkChecklistsToolBundle } from "@/lib/agents/shared/dibk-checklists/tool-bundle";
+import { generateCompactIndex } from "@/lib/agents/shared/dibk-checklists/data";
 import { PERSONA } from "./persona";
 import { WORKFLOW } from "./workflow";
 
-const bundles = [byggesakToolBundle, norwegianRegisters];
+const bundles = [dibkChecklistsToolBundle, norwegianRegisters];
 
 export const kommuneByggesakSaksbehandlerAgent: AgentModule = {
   id: "kommune-byggesak-saksbehandler",

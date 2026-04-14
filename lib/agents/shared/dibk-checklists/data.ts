@@ -9,7 +9,7 @@ function loadAll(): Record<string, Checkpoint[]> {
   if (cache) return cache;
   cache = {};
   for (const type of CHECKLIST_TYPES) {
-    const filePath = join(process.cwd(), "data", "kommune-byggesak-saksbehandler", `${type}.json`);
+    const filePath = join(process.cwd(), "data", "dibk-checklists", `${type}.json`);
     const raw = readFileSync(filePath, "utf-8");
     cache[type] = JSON.parse(raw) as Checkpoint[];
   }
