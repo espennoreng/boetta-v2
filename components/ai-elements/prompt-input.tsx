@@ -905,7 +905,8 @@ export const PromptInput = ({
             controller.textInput.clear();
           }
         }
-      } catch {
+      } catch (err) {
+        console.error("[PromptInput] submit failed:", err);
         // Don't clear on error - user may want to retry
       }
     },
