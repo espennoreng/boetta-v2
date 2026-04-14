@@ -40,7 +40,7 @@ export default function SessionPage({
         <div className="space-y-2 text-center">
           <p className="text-sm text-muted-foreground">{error}</p>
           <a href="/agent" className="text-sm underline">
-            Start a new conversation
+            Start en ny samtale
           </a>
         </div>
       </div>
@@ -51,7 +51,7 @@ export default function SessionPage({
     return (
       <div className="flex h-dvh items-center justify-center">
         <Shimmer as="p" className="text-sm">
-          Loading conversation...
+          Laster samtale...
         </Shimmer>
       </div>
     );
