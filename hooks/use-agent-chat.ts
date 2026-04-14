@@ -69,7 +69,57 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
   );
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  const pendingSessionRef = useRef<Promise<string> | null>(null);
+
+  const ensureSession = useCallback(async (): Promise<string> => {
+    if (sessionIdRef.current) return sessionIdRef.current;
+    if (pendingSessionRef.current) return pendingSessionRef.current;
+
+    const promise = (async () => {
+      const res = await fetch("/api/session", { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? `Failed to create session (${res.status})`);
+      }
+      const { sessionId: newSessionId } = (await res.json()) as { sessionId: string };
+      sessionIdRef.current = newSessionId;
+      setSessionId(newSessionId);
+      if (
+        typeof window !== "undefined" &&
+        !window.location.pathname.includes(newSessionId)
+      ) {
+        window.history.replaceState(null, "", `/agent/${newSessionId}`);
+      }
+      options.onSessionCreated?.(newSessionId);
+      return newSessionId;
+    })();
+
+    pendingSessionRef.current = promise;
+    try {
+      return await promise;
+    } catch (err) {
+      pendingSessionRef.current = null;
+      throw err;
+    } finally {
+      // Success path: null the ref now that sessionIdRef.current is set, so
+      // concurrent callers arriving *after* resolution see the fast path rather
+      // than awaiting an already-settled promise. The `catch` branch handles the
+      // failure cleanup separately.
+      if (pendingSessionRef.current === promise) {
+        pendingSessionRef.current = null;
+      }
+    }
+  }, [options.onSessionCreated]);
+
   const sendMessage = useCallback(async (text: string, attachmentIds: string[] = [], attachmentNames: string[] = []) => {
+    if (pendingSessionRef.current) {
+      try {
+        await pendingSessionRef.current;
+      } catch {
+        // ensureSession failed; fall through and let /api/chat create the session
+      }
+    }
+
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
@@ -295,7 +345,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
     }
   }, []);
 
-  return { messages, status, sendMessage, stopMessage, sessionId };
+  return { messages, status, sendMessage, stopMessage, sessionId, ensureSession };
 }
 
 export type { Citation } from "@/lib/citations";

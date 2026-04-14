@@ -36,6 +36,13 @@ export async function POST(request: Request) {
 
   const { message, sessionId: existingSessionId, attachmentIds = [] } = parsedBody;
 
+  if ((!message || message.trim().length === 0) && attachmentIds.length === 0) {
+    return new Response(
+      JSON.stringify({ error: "message or attachmentIds required" }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
   let sessionId = existingSessionId;
   let eventForAudit: "session.created" | "session.opened" = "session.opened";
 

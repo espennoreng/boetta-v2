@@ -13,6 +13,8 @@ interface ReconstructedMessage {
   id: string;
   role: "user" | "assistant";
   text: string;
+  attachmentIds?: string[];
+  attachmentNames?: string[];
   toolCalls?: Array<{
     id: string;
     name: string;
@@ -53,6 +55,23 @@ export async function GET(
       );
     }
 
+    const attachmentRows = await queries.getAttachmentsBySession({
+      anthropicSessionId: sessionId,
+      clerkOrgId: ctx.orgId,
+    });
+    const fileIdToAttachment = new Map<
+      string,
+      { id: string; originalName: string }
+    >();
+    for (const row of attachmentRows) {
+      if (row.anthropicFileId) {
+        fileIdToAttachment.set(row.anthropicFileId, {
+          id: row.id,
+          originalName: row.originalName,
+        });
+      }
+    }
+
     const messages: ReconstructedMessage[] = [];
     let currentAssistant: ReconstructedMessage | null = null;
 
@@ -75,10 +94,27 @@ export async function GET(
             .map((b) => b.text)
             .join("");
 
+          const attachmentIds: string[] = [];
+          const attachmentNames: string[] = [];
+          for (const block of event.content) {
+            if (
+              (block.type === "image" || block.type === "document") &&
+              block.source?.type === "file" &&
+              typeof block.source.file_id === "string"
+            ) {
+              const att = fileIdToAttachment.get(block.source.file_id);
+              if (att) {
+                attachmentIds.push(att.id);
+                attachmentNames.push(att.originalName);
+              }
+            }
+          }
+
           messages.push({
             id: event.id,
             role: "user",
             text,
+            ...(attachmentIds.length > 0 ? { attachmentIds, attachmentNames } : {}),
           });
           break;
         }

@@ -176,6 +176,26 @@ export function makeQueries(db: AnyDb) {
         );
     },
 
+    async getAttachmentsBySession(params: {
+      anthropicSessionId: string;
+      clerkOrgId: string;
+    }) {
+      return db
+        .select({
+          id: attachments.id,
+          anthropicFileId: attachments.anthropicFileId,
+          originalName: attachments.originalName,
+        })
+        .from(attachments)
+        .where(
+          and(
+            eq(attachments.anthropicSessionId, params.anthropicSessionId),
+            eq(attachments.clerkOrgId, params.clerkOrgId),
+            eq(attachments.status, "uploaded"),
+          ),
+        );
+    },
+
     async setAnthropicFileId(params: { id: string; anthropicFileId: string }) {
       await db
         .update(attachments)
