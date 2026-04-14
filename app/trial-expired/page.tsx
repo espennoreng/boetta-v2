@@ -5,7 +5,8 @@ import { SignOutButton } from "@clerk/nextjs";
 import { AlertTriangleIcon } from "lucide-react";
 import { makeQueries } from "@/lib/db/queries";
 import { db } from "@/lib/db";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -62,9 +63,9 @@ export default async function TrialExpiredPage() {
           Kontakt oss for å fortsette å bruke Boetta.
         </CardContent>
         <CardFooter className="flex flex-col gap-2">
-          <Button asChild className="w-full">
-            <Link href="/kontakt">Kontakt oss</Link>
-          </Button>
+          <Link href="/kontakt" className={cn(buttonVariants(), "w-full")}>
+            Kontakt oss
+          </Link>
           <SignOutButton>
             <Button variant="ghost" size="sm" className="w-full">
               Logg ut
