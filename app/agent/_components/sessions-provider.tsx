@@ -1,7 +1,5 @@
 "use client";
 
-import { useAuth } from "@clerk/nextjs";
-import { useRouter } from "next/navigation";
 import {
   createContext,
   useCallback,
@@ -106,21 +104,7 @@ function SessionsProviderInner({ children }: { children: ReactNode }) {
 }
 
 export function SessionsProvider({ children }: { children: ReactNode }) {
-  const { orgId } = useAuth();
-  const router = useRouter();
-  const previousOrgIdRef = useRef<string | null | undefined>(orgId);
-
-  useEffect(() => {
-    if (previousOrgIdRef.current !== orgId) {
-      previousOrgIdRef.current = orgId;
-      // Trigger server components to re-render with new org data
-      router.refresh();
-    }
-  }, [orgId, router]);
-
-  // Remount the inner state-holder whenever orgId changes.
-  // This clears all cached sessions and forces a fresh fetch from /api/sessions.
-  return <SessionsProviderInner key={orgId ?? "none"}>{children}</SessionsProviderInner>;
+  return <SessionsProviderInner>{children}</SessionsProviderInner>;
 }
 
 export function useSessions(): SessionsContextValue {

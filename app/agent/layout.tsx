@@ -3,6 +3,7 @@ import { getCurrentContext } from "@/lib/auth";
 import { allowedAgentsFor, getAgent, type OrgType } from "@/lib/agents/registry";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AgentSidebar } from "./_components/agent-sidebar";
+import { OrgChangeHandler } from "./_components/org-change-handler";
 import { SessionsProvider } from "./_components/sessions-provider";
 
 export type SidebarAgentInfo = {
@@ -48,12 +49,20 @@ export default async function AgentLayout({
 }) {
   const sidebarAgents = await getSidebarAgentInfo();
 
+  // OrgChangeHandler does a full browser reload to /agent on Clerk org
+  // switch — bulletproof way to avoid the "Rendered more hooks than during
+  // the previous render" error that occurs when the sidebar's hook shape
+  // changes between orgs. /agent/page.tsx then server-redirects to
+  // /agent/<slug> for the new org.
   return (
-    <SessionsProvider>
-      <SidebarProvider>
-        <AgentSidebar sidebarAgents={sidebarAgents} />
-        <SidebarInset>{children}</SidebarInset>
-      </SidebarProvider>
-    </SessionsProvider>
+    <>
+      <OrgChangeHandler />
+      <SessionsProvider>
+        <SidebarProvider>
+          <AgentSidebar sidebarAgents={sidebarAgents} />
+          <SidebarInset>{children}</SidebarInset>
+        </SidebarProvider>
+      </SessionsProvider>
+    </>
   );
 }
