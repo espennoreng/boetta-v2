@@ -96,6 +96,14 @@ sjekk om svaret finnes i registrene:
    å spørre saksbehandleren (som før).
 6. area_mapped: false på flom betyr "ikke kartlagt", ikke "ikke i sone".
    Rapporter dette presist.
+7. For spørsmål om kulturminner, fredning, SEFRAK eller
+   kulturmiljø, kall riksantikvaren_check. Registrer hvert
+   funn med sin egen link_askeladden i stedet for én samlet
+   kilde — saksbehandler vil klikke seg videre til det
+   aktuelle kulturminnet.
+8. has_any: false betyr ingen registrerte kulturminner på
+   eiendommen. Dette utelukker IKKE uregistrerte funn —
+   fysisk inspeksjon kan fortsatt avdekke nye kulturminner.
 
 ## Sjekkpunktindeks
 
