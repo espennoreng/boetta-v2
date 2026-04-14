@@ -16,41 +16,17 @@ const client = new Anthropic();
 
 const AGENT_TYPE = "byggesak";
 
-let cachedAgentId: string | null = null;
-let cachedEnvironmentId: string | null = null;
-
 const agentModule = getAgent(AGENT_TYPE);
 const ownershipQueries = makeQueries(db);
 
-export async function getAgentId(): Promise<string> {
-  if (cachedAgentId) return cachedAgentId;
-
-  const config = agentModule.createAgentConfig();
-
-  const agent = await client.beta.agents.create({
-    name: config.name,
-    model: config.model,
-    system: config.system,
-    tools: config.tools as Parameters<typeof client.beta.agents.create>[0]["tools"],
-  });
-
-  cachedAgentId = agent.id;
-  return cachedAgentId;
-}
-
-export async function getEnvironmentId(): Promise<string> {
-  if (cachedEnvironmentId) return cachedEnvironmentId;
-
-  const environment = await client.beta.environments.create({
-    name: `${AGENT_TYPE}-env-${Date.now()}`,
-    config: {
-      type: "cloud",
-      networking: { type: "unrestricted" },
-    },
-  });
-
-  cachedEnvironmentId = environment.id;
-  return cachedEnvironmentId;
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(
+      `${name} is not set. Run \`bun run sync-agent\` and copy the printed ID into .env.local.`,
+    );
+  }
+  return value;
 }
 
 export async function interruptSession(sessionId: string): Promise<void> {
@@ -64,14 +40,9 @@ export async function createSession(params: {
   clerkUserId: string;
   title?: string;
 }): Promise<string> {
-  const [agentId, environmentId] = await Promise.all([
-    getAgentId(),
-    getEnvironmentId(),
-  ]);
-
   const session = await client.beta.sessions.create({
-    agent: agentId,
-    environment_id: environmentId,
+    agent: requireEnv("ANTHROPIC_AGENT_ID"),
+    environment_id: requireEnv("ANTHROPIC_ENVIRONMENT_ID"),
     metadata: {
       clerkOrgId: params.clerkOrgId,
       clerkUserId: params.clerkUserId,
