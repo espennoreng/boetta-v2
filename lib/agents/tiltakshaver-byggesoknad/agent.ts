@@ -1,26 +1,37 @@
 import type { AgentModule } from "@/lib/agents/types";
 import { composeSystemPrompt } from "@/lib/agents/compose-system-prompt";
 import { answerChipsFragment } from "@/lib/agents/shared/prompt-fragments/answer-chips";
+import { findingsTableFragment } from "@/lib/agents/shared/prompt-fragments/findings-table";
+import { lawCitationsFragment } from "@/lib/agents/shared/prompt-fragments/law-citations";
+import { dibkChecklistsToolBundle } from "@/lib/agents/shared/dibk-checklists/tool-bundle";
+import { generateCompactIndex } from "@/lib/agents/shared/dibk-checklists/data";
 import { norwegianRegisters } from "@/lib/agents/norwegian-registers";
 import { PERSONA } from "./persona";
 import { WORKFLOW } from "./workflow";
 
-const bundles = [norwegianRegisters];
+const bundles = [dibkChecklistsToolBundle, norwegianRegisters];
 
 export const tiltakshaverByggesoknadAgent: AgentModule = {
   id: "tiltakshaver-byggesoknad",
 
   createAgentConfig() {
     return {
-      name: "Tiltakshaver Byggesøknad (Stub)",
-      model: "claude-haiku-4-5-20251001",
+      name: "Tiltakshaver Byggesøknad",
+      model: "claude-sonnet-4-6",
       system: composeSystemPrompt({
         persona: PERSONA,
         workflow: WORKFLOW,
-        conventions: [answerChipsFragment],
+        conventions: [
+          answerChipsFragment,
+          findingsTableFragment,
+          lawCitationsFragment,
+        ],
         toolGuidance: bundles
           .map((b) => b.promptFragment)
           .filter((s): s is string => Boolean(s)),
+        dynamicSections: [
+          { heading: "Sjekkpunktindeks", body: generateCompactIndex() },
+        ],
       }),
       tools: [
         { type: "agent_toolset_20260401" as const },
