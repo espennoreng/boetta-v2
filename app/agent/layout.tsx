@@ -26,10 +26,15 @@ async function getSidebarAgentInfo(): Promise<SidebarAgentInfo[]> {
       sessionGroupLabel: getAgent(slug).ui?.sessionGroupLabel ?? slug,
     }));
   } catch (err) {
-    // If auth fails or org can't be fetched, return empty (client will handle)
-    const isNotActive =
-      err instanceof Error && err.name === "NotActiveError";
-    if (isNotActive || !process.env.NEXT_PUBLIC_DISABLE_SIDEBAR) {
+    // Auth-family errors: treat as "no allowed agents" (child page will redirect/handle).
+    // Any other error (network, Clerk outage, etc.) should bubble up to the nearest
+    // error boundary rather than silently hiding the sidebar.
+    const name = err instanceof Error ? err.name : "";
+    if (
+      name === "NotAuthenticatedError" ||
+      name === "NoOrgError" ||
+      name === "NotActiveError"
+    ) {
       return [];
     }
     throw err;
