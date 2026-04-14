@@ -15,10 +15,11 @@ export const entitlements = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     clerkOrgId: text("clerk_org_id").notNull(),
-    status: text("status").notNull(), // 'pending' | 'active' | 'suspended'
-    approvedAt: timestamp("approved_at", { withTimezone: true, mode: "date" }),
-    approvedBy: text("approved_by"),
-    notes: text("notes"),
+    status: text("status").notNull(), // 'trial' | 'active' | 'expired'
+    trialEndsAt: timestamp("trial_ends_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .default(sql`now()`),
@@ -117,5 +118,5 @@ export type AuditEvent =
   | "user.signed_in"
   | "session.created"
   | "session.opened"
-  | "entitlement.approved"
-  | "entitlement.suspended";
+  | "entitlement.created"
+  | "entitlement.expired";
