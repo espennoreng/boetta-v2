@@ -381,6 +381,26 @@ function ChatMessageItem({
   isStreaming: boolean;
   onSendMessage: (text: string) => void;
 }) {
+  // All hooks must be called unconditionally before any early return.
+  const thinkingPhrase = useRotatingPhrase(THINKING_PHRASES);
+  const analyzingPhrase = useRotatingPhrase(ANALYZING_PHRASES);
+
+  const { bodyText, questionText, options } = useMemo(
+    () =>
+      message.text
+        ? parseAnswerOptions(message.text)
+        : { bodyText: "", questionText: null, options: [] },
+    [message.text],
+  );
+
+  const toolCallsMap = useMemo(() => {
+    const map = new Map<string, ToolCall>();
+    for (const tc of message.toolCalls ?? []) {
+      map.set(tc.id, tc);
+    }
+    return map;
+  }, [message.toolCalls]);
+
   if (message.role === "user") {
     return (
       <Message from="user">
@@ -413,26 +433,7 @@ function ChatMessageItem({
   const showInitialLoading = isLast && isStreaming && !hasContent;
   const showThinking = isLast && isStreaming && message.isThinking;
 
-  const thinkingPhrase = useRotatingPhrase(THINKING_PHRASES);
-  const analyzingPhrase = useRotatingPhrase(ANALYZING_PHRASES);
-
-  const { bodyText, questionText, options } = useMemo(
-    () =>
-      message.text
-        ? parseAnswerOptions(message.text)
-        : { bodyText: "", questionText: null, options: [] },
-    [message.text],
-  );
-
   const showQuestion = isLast && !isStreaming && questionText;
-
-  const toolCallsMap = useMemo(() => {
-    const map = new Map<string, ToolCall>();
-    for (const tc of message.toolCalls ?? []) {
-      map.set(tc.id, tc);
-    }
-    return map;
-  }, [message.toolCalls]);
 
   // Use parts array for correct ordering if available, otherwise fall back
   const hasParts = message.parts && message.parts.length > 0;
