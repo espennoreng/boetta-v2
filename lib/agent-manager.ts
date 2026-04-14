@@ -14,7 +14,7 @@ import { db } from "@/lib/db";
 
 const client = new Anthropic();
 
-const AGENT_TYPE = "byggesak";
+const AGENT_TYPE = "kommune-byggesak-saksbehandler";
 
 const agentModule = getAgent(AGENT_TYPE);
 const ownershipQueries = makeQueries(db);

@@ -114,12 +114,12 @@ function buildSystemPrompt(): string {
   return SYSTEM_PROMPT + index;
 }
 
-export const byggesakAgent: AgentModule = {
-  id: "byggesak",
+export const kommuneByggesakSaksbehandlerAgent: AgentModule = {
+  id: "kommune-byggesak-saksbehandler",
 
   createAgentConfig() {
     return {
-      name: "Byggesak Assistant",
+      name: "Kommune Byggesak Saksbehandler",
       model: "claude-sonnet-4-6",
 	  //model: "claude-haiku-4-5-20251001",
       system: buildSystemPrompt(),

@@ -9,7 +9,7 @@ if (existsSync(".env.local")) {
   }
 }
 
-const AGENT_TYPE = "byggesak";
+const AGENT_TYPE = "kommune-byggesak-saksbehandler";
 
 const client = new Anthropic();
 

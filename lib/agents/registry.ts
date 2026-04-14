@@ -1,8 +1,8 @@
 import type { AgentModule } from "./types";
-import { byggesakAgent } from "./byggesak/agent";
+import { kommuneByggesakSaksbehandlerAgent } from "./kommune-byggesak-saksbehandler/agent";
 
 const agents: Record<string, AgentModule> = {
-  byggesak: byggesakAgent,
+  "kommune-byggesak-saksbehandler": kommuneByggesakSaksbehandlerAgent,
 };
 
 export function getAgent(type: string): AgentModule {

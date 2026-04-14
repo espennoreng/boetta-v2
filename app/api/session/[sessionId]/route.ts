@@ -6,7 +6,7 @@ import { makeQueries } from "@/lib/db/queries";
 import { db } from "@/lib/db";
 
 const client = new Anthropic();
-const agentModule = getAgent("byggesak");
+const agentModule = getAgent("kommune-byggesak-saksbehandler");
 const queries = makeQueries(db);
 
 interface ReconstructedMessage {
