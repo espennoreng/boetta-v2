@@ -39,7 +39,7 @@ describe("logEvent", () => {
     await audit.logEvent({
       actorUserId: "user_admin",
       actorOrgId: null,
-      event: "entitlement.approved",
+      event: "entitlement.created",
       subjectType: "entitlement",
       subjectId: "org_x",
     });
