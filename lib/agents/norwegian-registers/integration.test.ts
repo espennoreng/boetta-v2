@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test";
 import { resolveProperty } from "./resolve";
 import { nveCheck } from "./nve";
+import { riksantikvarenCheck } from "./riksantikvaren";
 import { CoordCache } from "./cache";
 
 const LIVE = process.env.RUN_LIVE_REGISTERS_TESTS === "1";
@@ -37,4 +38,20 @@ d("live: Kartverket + NVE (gated by RUN_LIVE_REGISTERS_TESTS=1)", () => {
     expect(parsed.findings.steinsprang).toBeDefined();
     expect(parsed.findings.snoskred).toBeDefined();
   }, 15000);
+
+  it("riksantikvarenCheck returns has_any: true for Bryggen, Bergen", async () => {
+    const bryggenCache = new CoordCache(10);
+    const resolved = await resolveProperty(
+      { address: "Bryggen 5, 5003 Bergen" },
+      { cache: bryggenCache },
+    );
+    const raw = await riksantikvarenCheck(
+      { matrikkel_id: resolved.matrikkel_id },
+      { cache: bryggenCache },
+    );
+    const parsed = JSON.parse(raw);
+    expect(parsed.source).toBe("Riksantikvaren");
+    expect(parsed.findings).not.toBeNull();
+    expect(parsed.findings.has_any).toBe(true);
+  }, 20000);
 });
