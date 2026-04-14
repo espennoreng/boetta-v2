@@ -112,10 +112,12 @@ export async function POST(request: Request) {
     async start(controller) {
       let assistantText = "";
       try {
+        // TODO(Task 10): replace files with resolved AttachmentForChat[]
         for await (const event of streamWithToolHandling(
           sessionId!,
           message,
-          files ?? [],
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (files ?? []) as any,
         )) {
           if (event.type === "text" && typeof event.text === "string") {
             assistantText += event.text;

@@ -1,5 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { FileUIPart } from "ai";
+import {
+  type AttachmentForChat,
+  buildContentBlocksFromAttachments,
+} from "@/lib/attachments";
 import { getAgent } from "@/lib/agents/registry";
 import {
   type Citation,
@@ -80,46 +83,6 @@ export async function createSession(params: {
   return session.id;
 }
 
-function buildContentBlocks(text: string, files: FileUIPart[]) {
-  const content: Array<
-    | { type: "text"; text: string }
-    | {
-        type: "image";
-        source: { type: "base64"; media_type: string; data: string };
-      }
-    | {
-        type: "document";
-        source: { type: "base64"; media_type: string; data: string };
-        title?: string;
-      }
-  > = [];
-
-  for (const file of files) {
-    const match = file.url.match(/^data:([^;]+);base64,(.+)$/);
-    if (!match) continue;
-
-    const [, mediaType, data] = match;
-
-    if (mediaType.startsWith("image/")) {
-      content.push({
-        type: "image",
-        source: { type: "base64", media_type: mediaType, data },
-      });
-    } else {
-      content.push({
-        type: "document",
-        source: { type: "base64", media_type: mediaType, data },
-        ...(file.filename ? { title: file.filename } : {}),
-      });
-    }
-  }
-
-  if (text) {
-    content.push({ type: "text", text });
-  }
-
-  return content;
-}
 
 export interface StreamEvent {
   type: string;
@@ -222,24 +185,35 @@ async function* resolvePendingToolCalls(
   }
 }
 
+/**
+ * Caller is responsible for resolving each attachment row's anthropic_file_id
+ * (via lib/attachments.resolveAttachmentsForChat) BEFORE invoking. This
+ * function will not write to the DB.
+ */
 export async function* streamWithToolHandling(
   sessionId: string,
   text: string,
-  files: FileUIPart[] = [],
+  attachments: AttachmentForChat[] = [],
 ): AsyncGenerator<StreamEvent> {
   // Resolve any pending tool calls from a previous interrupted session
   yield* resolvePendingToolCalls(sessionId);
 
-  const content = buildContentBlocks(text, files);
+  const content = buildContentBlocksFromAttachments({ text, attachments });
 
-  await client.beta.sessions.events.send(sessionId, {
-    events: [
-      {
-        type: "user.message",
-        content,
-      },
-    ],
-  });
+  try {
+    await client.beta.sessions.events.send(sessionId, {
+      events: [{ type: "user.message", content }],
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/file[_\- ]?id|not[_\- ]?found|404/i.test(msg)) {
+      const ids = attachments.map((a) => a.anthropicFileId).filter(Boolean);
+      throw new Error(
+        `events.send rejected with possible stale file_id (${ids.join(",")}): ${msg}`,
+      );
+    }
+    throw err;
+  }
 
   const collectedCitations: Citation[] = [];
 
