@@ -6,9 +6,6 @@ import { makeQueries } from "@/lib/db/queries";
 import { makeAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 
-const queries = makeQueries(db);
-const audit = makeAudit(db);
-
 const TRIAL_DAYS = 14;
 
 export async function submitOrgType(formData: FormData) {
@@ -21,13 +18,7 @@ export async function submitOrgType(formData: FormData) {
     throw new Error("orgType invalid");
   }
 
-  // 1. Write orgType to Clerk publicMetadata
-  const client = await clerkClient();
-  await client.organizations.updateOrganization(orgId, {
-    publicMetadata: { orgType },
-  });
-
-  // 2. Create the trial entitlement (idempotent; no-op if already present)
+  // 1. Create trial entitlement + audit log (transactional)
   const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 3600 * 1000);
   await db.transaction(async (tx) => {
     const txQueries = makeQueries(tx);
@@ -43,6 +34,12 @@ export async function submitOrgType(formData: FormData) {
       subjectType: "entitlement",
       subjectId: orgId,
     });
+  });
+
+  // 2. Write orgType to Clerk publicMetadata (after DB persisted)
+  const client = await clerkClient();
+  await client.organizations.updateOrganization(orgId, {
+    publicMetadata: { orgType },
   });
 
   redirect("/agent");
