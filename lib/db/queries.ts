@@ -3,7 +3,7 @@ import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "./schema";
 import { entitlements, sessionOwnership, attachments } from "./schema";
 
-export type EntitlementStatus = "none" | "pending" | "active" | "suspended";
+export type EntitlementStatus = "none" | "trial" | "active" | "expired";
 
 // The common Postgres Drizzle base: accepts node-postgres, neon-serverless,
 // pglite, AND transactions from any of them.
@@ -30,49 +30,37 @@ export function makeQueries(db: AnyDb) {
       return row ?? null;
     },
 
-    async upsertPendingEntitlement(clerkOrgId: string) {
+    async createTrialEntitlement(params: {
+      clerkOrgId: string;
+      trialEndsAt: Date;
+    }) {
       await db
         .insert(entitlements)
-        .values({ clerkOrgId, status: "pending" })
+        .values({
+          clerkOrgId: params.clerkOrgId,
+          status: "trial",
+          trialEndsAt: params.trialEndsAt,
+        })
         .onConflictDoNothing({ target: entitlements.clerkOrgId });
     },
 
-    async approveEntitlement(params: {
-      clerkOrgId: string;
-      approvedBy: string;
-    }) {
+    async expireEntitlement(clerkOrgId: string) {
       await db
         .update(entitlements)
-        .set({
-          status: "active",
-          approvedAt: new Date(),
-          approvedBy: params.approvedBy,
-          updatedAt: new Date(),
-        })
-        .where(eq(entitlements.clerkOrgId, params.clerkOrgId));
-    },
-
-    async suspendEntitlement(params: { clerkOrgId: string; notes: string }) {
-      await db
-        .update(entitlements)
-        .set({
-          status: "suspended",
-          notes: params.notes,
-          updatedAt: new Date(),
-        })
-        .where(eq(entitlements.clerkOrgId, params.clerkOrgId));
+        .set({ status: "expired", updatedAt: new Date() })
+        .where(eq(entitlements.clerkOrgId, clerkOrgId));
     },
 
     async listEntitlements() {
-      // Pending first, then active, then suspended; within each, oldest-created first
+      // Trial first, then active, then expired; within each, oldest-created first
       return db
         .select()
         .from(entitlements)
         .orderBy(
           sql`case ${entitlements.status}
-              when 'pending' then 0
+              when 'trial'   then 0
               when 'active'  then 1
-              when 'suspended' then 2
+              when 'expired' then 2
               else 3 end`,
           asc(entitlements.createdAt),
         );
