@@ -166,16 +166,19 @@ The stub applier agent is the same shape with `bundles = [norwegianRegisters]`, 
 
 Fixed, opinionated, non-configurable. In rendering order:
 
-1. `persona` — raw text, no heading (it's the opener).
-2. `## Arbeidsflyt` — `workflow` body.
+1. `persona` — required string, raw text, no heading (it's the opener).
+2. `workflow` — **optional** string; when present, wrapped in `## Arbeidsflyt`. When absent or empty, slot is skipped entirely. Covers future pure-Q&A agents that have a persona but no step-by-step workflow.
 3. Each fragment in `conventions[]`, rendered in order, each responsible for its own `## Heading`.
-4. `## Verktøybruk` header (if any `toolGuidance[]` entries exist), then each tool guidance fragment in order.
+4. Each fragment in `toolGuidance[]`, rendered in order, each responsible for its own `## Heading`. **No auto-injected wrapper header.** This lets tool bundles pick semantically appropriate headings (`## Oppslag i offentlige registre` for registers, `## Verktøybruk` for byggesak checklist tools) rather than being forced under a single generic "tool usage" roof.
 5. Each `dynamicSections[]` entry as `## <heading>` + `<body>`.
 
-A few invariants:
+Invariants:
 - Empty arrays are legal and skip their section entirely.
-- Every shared fragment owns its own `## ...` heading text — keeps headings consistent when the same fragment shows up in multiple agents.
-- Dynamic sections are the only slot that takes a `{ heading, body }` pair, because their heading is typically agent-specific (e.g., "Sjekkpunktindeks" only makes sense for byggesak).
+- `persona` is the only required slot. Every other slot is opt-in.
+- Every fragment (both `conventions[]` and `toolGuidance[]`) owns its own `## ...` heading text — keeps headings consistent when the same fragment shows up in multiple agents, and avoids the composer making domain-semantic decisions about how to group tools.
+- `conventions[]` and `toolGuidance[]` differ only semantically (conventions = shared house-style fragments, toolGuidance = fragments shipped by tool bundles). Structurally they're identical slots, rendered in order.
+- `dynamicSections[]` is the only slot that takes a `{ heading, body }` pair, because its heading is typically agent-specific (e.g., "Sjekkpunktindeks" only makes sense for byggesak).
+- Hardcoded `## Arbeidsflyt` heading assumes Norwegian; documented latent assumption, revisit if multilingual agents ever ship.
 
 ## UI surface changes
 
@@ -212,8 +215,10 @@ New route handler: look up `sessionOwnership.agentType`, 301 to `/agent/<agentTy
 2. If `allowedAgents.length === 1`: render current behavior unchanged; use `agent.ui.sessionGroupLabel` for the group heading and `agent.ui.newSessionLabel` for the "Ny samtale" button.
 3. If `allowedAgents.length > 1`:
    - Group sessions by `agentType` using `agent.ui.sessionGroupLabel` per group.
-   - "New session" button becomes per-agent — simplest implementation is one button per allowed agent, stacked at the top.
-   - Active agent is inferred from the current URL (`/agent/[slug]/...`). No explicit switcher UI in v1 — the per-agent "new session" buttons and the grouped lists serve as navigation.
+   - "New session" button becomes per-agent — one button per allowed agent, stacked at the top. Each button's label comes from that agent's `ui.newSessionLabel`.
+   - **Active-agent visual state.** The agent whose slug matches the current URL (`/agent/[slug]/...`) gets visual emphasis in two places: its group heading is rendered with an accent (e.g. `text-foreground` vs `text-muted-foreground` for the inactive group), and its "New session" button uses `variant="default"` while the others use `variant="outline"`. This gives "I am currently in Byggesaker" signal without an explicit switcher component.
+   - **Empty agent groups still render.** If the user has access to an agent but has never used it, the group heading still appears with an empty-state hint (e.g., `"Ingen dispensasjoner ennå"`). This advertises the agent's existence and reinforces that its "New session" button has somewhere to put sessions. Without this, users with access to a rarely-used agent might not realize it exists.
+   - No explicit switcher component (tabs, dropdown) in v1. Revisit if the catalog grows to 4+ agents within one org type, at which point per-agent stacked buttons become visual clutter and a scoped-sidebar-with-tabs design becomes worth the complexity.
 
 ### Admin page
 
@@ -361,9 +366,11 @@ Existing tests should be updated in place, not duplicated:
 - Manual verification checklist (for the PR description):
   - Create a municipality-type org's new session → routed through `/agent/kommune-byggesak-saksbehandler/...`, tool calls work as before.
   - Create a tiltakshaver-type test org's new session → routed through `/agent/tiltakshaver-byggesoknad/...`, stub agent responds, `resolve_property` tool works via the shared Norwegian registers bundle.
-  - Hit a legacy `/agent/[sessionId]` URL from an existing bookmark → 301s cleanly.
+  - **Per-agent tool isolation.** Inspect the registered Anthropic agent config for `tiltakshaver-byggesoknad` (via the SDK after `sync-agent`) and confirm the byggesak-specific tools (`get_checkpoints`, `get_checkpoint_detail`, `search_checkpoints`, etc.) are *not* present in its tool list. Reciprocally, confirm the kommune agent's tool list is unchanged from today.
+  - Hit a legacy `/agent/[sessionId]` URL from an existing bookmark → 301s cleanly to `/agent/kommune-byggesak-saksbehandler/[sessionId]`.
   - Admin page renames work; selecting `tiltakshaver` updates Clerk metadata and DB entitlement together.
   - `sync-agent` script prints both env var lines.
+  - Sidebar active-state: on a `kommune-byggesak-saksbehandler` URL in an org with access to both agents, the Byggesaker group heading and "Ny byggesak" button are visually emphasized; navigating to a tiltakshaver URL flips the emphasis.
 
 ## Risks and mitigations
 
