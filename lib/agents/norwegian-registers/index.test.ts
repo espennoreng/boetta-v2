@@ -44,3 +44,14 @@ describe("norwegian-registers module entry", () => {
     expect(getDisplayName("resolve_property")).toBeTruthy();
   });
 });
+
+describe("index — riksantikvaren_check registered", () => {
+  it("exposes riksantikvaren_check in toolDefinitions", () => {
+    expect(toolDefinitions.some((t) => t.name === "riksantikvaren_check")).toBe(
+      true,
+    );
+  });
+  it("ownsTool('riksantikvaren_check') is true", () => {
+    expect(ownsTool("riksantikvaren_check")).toBe(true);
+  });
+});
