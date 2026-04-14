@@ -481,6 +481,13 @@ export type PromptInputProps = Omit<
   multiple?: boolean;
   /** Session id used to presign attachment uploads. Required when attaching files. */
   sessionId?: string;
+  /**
+   * Called when a file is picked or dropped and `sessionId` is absent.
+   * Must resolve to a valid session id; the upload flow awaits this before
+   * presigning. If omitted and files are provided without a sessionId, the
+   * existing hard error still throws.
+   */
+  ensureSessionId?: () => Promise<string>;
   // When true, accepts drops anywhere on document. Default false (opt-in).
   globalDrop?: boolean;
   // Render a hidden input with given name and keep it in sync for native form posts. Default false.
@@ -504,6 +511,7 @@ export const PromptInput = ({
   accept,
   multiple,
   sessionId,
+  ensureSessionId,
   globalDrop,
   syncHiddenInput,
   maxFiles,
@@ -851,11 +859,15 @@ export const PromptInput = ({
       try {
         // Upload all attached files to R2 in parallel, then submit attachment ids.
         // TODO(perf): hoist this into add() so progress can render before submit.
-        if (!sessionId && files.length > 0) {
-          throw new Error(
-            "PromptInput needs sessionId to upload attachments. " +
-              "Pass <PromptInput sessionId={sessionId} ...>.",
-          );
+        let effectiveSessionId = sessionId;
+        if (!effectiveSessionId && files.length > 0) {
+          if (!ensureSessionId) {
+            throw new Error(
+              "PromptInput needs sessionId (or ensureSessionId) to upload attachments. " +
+                "Pass <PromptInput sessionId={sessionId} ensureSessionId={ensureSession} ...>.",
+            );
+          }
+          effectiveSessionId = await ensureSessionId();
         }
         const { uploadAttachment } = await import("@/lib/client/upload-attachment");
         const uploaded = await Promise.all(
@@ -866,7 +878,7 @@ export const PromptInput = ({
             const blob = await (await fetch(item.url)).blob();
             const filename = item.filename ?? "file";
             const file = new File([blob], filename, { type: item.mediaType });
-            const { attachmentId } = await uploadAttachment({ file, sessionId: sessionId! });
+            const { attachmentId } = await uploadAttachment({ file, sessionId: effectiveSessionId! });
             return { attachmentId, filename };
           }),
         );
@@ -897,7 +909,7 @@ export const PromptInput = ({
         // Don't clear on error - user may want to retry
       }
     },
-    [usingProvider, controller, files, onSubmit, clear]
+    [usingProvider, controller, files, onSubmit, clear, sessionId, ensureSessionId]
   );
 
   // Render with or without local provider
