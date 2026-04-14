@@ -108,15 +108,19 @@ const AttachmentItem = memo(({ attachment, onRemove }: AttachmentItemProps) => {
 
 AttachmentItem.displayName = "AttachmentItem";
 
-const AttachFilesButton = ({ sessionId }: { sessionId?: string | null }) => {
+const AttachFilesButton = ({ ensureSession }: { ensureSession: () => Promise<string> }) => {
   const attachments = usePromptInputAttachments();
-  const noSession = !sessionId;
+  const handleClick = useCallback(async () => {
+    try {
+      await ensureSession();
+      attachments.openFileDialog();
+    } catch (err) {
+      console.error("Failed to create session for attachment:", err);
+    }
+  }, [ensureSession, attachments]);
+
   return (
-    <PromptInputButton
-      disabled={noSession}
-      tooltip={noSession ? "Send en tekstmelding først for å starte samtalen, deretter kan du legge ved filer." : undefined}
-      onClick={noSession ? undefined : () => attachments.openFileDialog()}
-    >
+    <PromptInputButton onClick={handleClick}>
       <PaperclipIcon className="size-4" />
     </PromptInputButton>
   );
@@ -287,7 +291,7 @@ export default function ChatPage({ initialSessionId, initialMessages }: ChatPage
     [applyTitle],
   );
 
-  const { messages, status, sendMessage, stopMessage, sessionId } = useAgentChat({
+  const { messages, status, sendMessage, stopMessage, sessionId, ensureSession } = useAgentChat({
     initialSessionId,
     initialMessages,
     onSessionCreated: handleSessionCreated,
@@ -335,15 +339,10 @@ export default function ChatPage({ initialSessionId, initialMessages }: ChatPage
             globalDrop
             multiple
             sessionId={sessionId ?? undefined}
+            ensureSessionId={ensureSession}
             onSubmit={({ text, attachmentIds, attachmentNames }) => {
               if ((!text.trim() && attachmentIds.length === 0) || status === "streaming")
                 return;
-              if (attachmentIds.length > 0 && !sessionId) {
-                // Defense-in-depth: attach button is already disabled without a sessionId,
-                // but guard here as well in case files slip through another path.
-                console.error("Cannot upload attachments before a session exists. Send a text message first.");
-                return;
-              }
               sendMessage(text, attachmentIds, attachmentNames);
             }}
           >
@@ -353,7 +352,7 @@ export default function ChatPage({ initialSessionId, initialMessages }: ChatPage
             </PromptInputBody>
             <PromptInputFooter>
               <PromptInputTools>
-                <AttachFilesButton sessionId={sessionId} />
+                <AttachFilesButton ensureSession={ensureSession} />
               </PromptInputTools>
               <PromptInputSubmit
                 status={status === "streaming" ? "streaming" : "ready"}
