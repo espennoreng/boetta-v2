@@ -101,9 +101,10 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
       pendingSessionRef.current = null;
       throw err;
     } finally {
-      // Once resolved, clear the cached promise so a later retry after a hard
-      // error path can re-run (the ref-based cache no longer matters because
-      // sessionIdRef.current is now set).
+      // Success path: null the ref now that sessionIdRef.current is set, so
+      // concurrent callers arriving *after* resolution see the fast path rather
+      // than awaiting an already-settled promise. The `catch` branch handles the
+      // failure cleanup separately.
       if (pendingSessionRef.current === promise) {
         pendingSessionRef.current = null;
       }
@@ -111,6 +112,14 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
   }, [options.onSessionCreated]);
 
   const sendMessage = useCallback(async (text: string, attachmentIds: string[] = [], attachmentNames: string[] = []) => {
+    if (pendingSessionRef.current) {
+      try {
+        await pendingSessionRef.current;
+      } catch {
+        // ensureSession failed; fall through and let /api/chat create the session
+      }
+    }
+
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
