@@ -54,7 +54,7 @@ export async function presignGet(params: {
 
 export async function fetchObjectStream(params: {
   key: string;
-}): Promise<{ body: ReadableStream | NodeJS.ReadableStream; contentType?: string }> {
+}): Promise<{ body: ReadableStream; contentType?: string }> {
   const out = await r2Client().send(
     new GetObjectCommand({ Bucket: R2_BUCKET, Key: params.key }),
   );
@@ -62,7 +62,7 @@ export async function fetchObjectStream(params: {
     throw new Error(`R2 object missing body: ${params.key}`);
   }
   return {
-    body: out.Body as ReadableStream | NodeJS.ReadableStream,
+    body: out.Body.transformToWebStream(),
     contentType: out.ContentType,
   };
 }
@@ -85,11 +85,23 @@ export function sanitizeFilename(input: string): string {
   return stem.slice(0, MAX_NAME_LEN - ext.length) + ext;
 }
 
+function assertSafeKeySegment(name: string, value: string): void {
+  if (!value) {
+    throw new Error(`buildR2Key: ${name} is empty`);
+  }
+  if (/[\\/]/.test(value) || value === "." || value === "..") {
+    throw new Error(`buildR2Key: ${name} must not contain slashes or be '.' / '..'`);
+  }
+}
+
 export function buildR2Key(params: {
   orgId: string;
   sessionId: string;
   uuid: string;
   filename: string;
 }): string {
+  assertSafeKeySegment("orgId", params.orgId);
+  assertSafeKeySegment("sessionId", params.sessionId);
+  assertSafeKeySegment("uuid", params.uuid);
   return `org/${params.orgId}/session/${params.sessionId}/${params.uuid}-${sanitizeFilename(params.filename)}`;
 }

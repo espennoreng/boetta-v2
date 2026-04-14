@@ -46,4 +46,19 @@ describe("buildR2Key", () => {
     });
     expect(key).toBe("org/o/session/s/u-bad-name.pdf");
   });
+  it("rejects orgId with slashes", () => {
+    expect(() =>
+      buildR2Key({ orgId: "a/b", sessionId: "s", uuid: "u", filename: "x.pdf" }),
+    ).toThrow(/orgId/);
+  });
+  it("rejects sessionId with traversal", () => {
+    expect(() =>
+      buildR2Key({ orgId: "o", sessionId: "..", uuid: "u", filename: "x.pdf" }),
+    ).toThrow(/sessionId/);
+  });
+  it("rejects empty uuid", () => {
+    expect(() =>
+      buildR2Key({ orgId: "o", sessionId: "s", uuid: "", filename: "x.pdf" }),
+    ).toThrow(/uuid/);
+  });
 });
