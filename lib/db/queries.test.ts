@@ -24,73 +24,71 @@ describe("lookupEntitlementStatus", () => {
   });
 
   it("returns the row's status when present", async () => {
-    await q.upsertPendingEntitlement("org_a");
-    expect(await q.lookupEntitlementStatus("org_a")).toBe("pending");
+    await q.createTrialEntitlement({
+      clerkOrgId: "org_a",
+      trialEndsAt: new Date(Date.now() + 14 * 24 * 3600 * 1000),
+    });
+    expect(await q.lookupEntitlementStatus("org_a")).toBe("trial");
   });
 });
 
-describe("upsertPendingEntitlement", () => {
-  it("creates a pending row on first call", async () => {
-    await q.upsertPendingEntitlement("org_a");
-    expect(await q.lookupEntitlementStatus("org_a")).toBe("pending");
-  });
-
-  it("is idempotent — does not downgrade an active row", async () => {
-    await q.upsertPendingEntitlement("org_a");
-    await q.approveEntitlement({
-      clerkOrgId: "org_a",
-      approvedBy: "user_admin",
-    });
-    await q.upsertPendingEntitlement("org_a");
-    expect(await q.lookupEntitlementStatus("org_a")).toBe("active");
-  });
-});
-
-describe("approveEntitlement", () => {
-  it("transitions pending → active", async () => {
-    await q.upsertPendingEntitlement("org_a");
-    await q.approveEntitlement({
-      clerkOrgId: "org_a",
-      approvedBy: "user_admin",
-    });
-    expect(await q.lookupEntitlementStatus("org_a")).toBe("active");
-  });
-
-  it("sets approvedBy and approvedAt", async () => {
-    await q.upsertPendingEntitlement("org_a");
-    const before = new Date();
-    await q.approveEntitlement({
-      clerkOrgId: "org_a",
-      approvedBy: "user_admin",
-    });
+describe("createTrialEntitlement", () => {
+  it("creates a trial row with the given trialEndsAt", async () => {
+    const ends = new Date(Date.now() + 14 * 24 * 3600 * 1000);
+    await q.createTrialEntitlement({ clerkOrgId: "org_a", trialEndsAt: ends });
     const row = await q.getEntitlement("org_a");
-    expect(row?.approvedBy).toBe("user_admin");
-    expect(row?.approvedAt).toBeInstanceOf(Date);
-    expect(row!.approvedAt!.getTime()).toBeGreaterThanOrEqual(before.getTime() - 10);
+    expect(row?.status).toBe("trial");
+    expect(row?.trialEndsAt).toBeInstanceOf(Date);
+    expect(row!.trialEndsAt!.getTime()).toBe(ends.getTime());
+  });
+
+  it("is idempotent — a second call does not overwrite an existing row", async () => {
+    const ends1 = new Date(Date.now() + 14 * 24 * 3600 * 1000);
+    const ends2 = new Date(Date.now() + 30 * 24 * 3600 * 1000);
+    await q.createTrialEntitlement({ clerkOrgId: "org_a", trialEndsAt: ends1 });
+    await q.createTrialEntitlement({ clerkOrgId: "org_a", trialEndsAt: ends2 });
+    const row = await q.getEntitlement("org_a");
+    expect(row!.trialEndsAt!.getTime()).toBe(ends1.getTime());
   });
 });
 
-describe("suspendEntitlement", () => {
-  it("transitions active → suspended and stores notes", async () => {
-    await q.upsertPendingEntitlement("org_a");
-    await q.approveEntitlement({ clerkOrgId: "org_a", approvedBy: "user_admin" });
-    await q.suspendEntitlement({
+describe("expireEntitlement", () => {
+  it("flips trial → expired", async () => {
+    await q.createTrialEntitlement({
       clerkOrgId: "org_a",
-      notes: "non-payment",
+      trialEndsAt: new Date(Date.now() - 1000),
     });
-    expect(await q.lookupEntitlementStatus("org_a")).toBe("suspended");
-    const row = await q.getEntitlement("org_a");
-    expect(row?.notes).toBe("non-payment");
+    await q.expireEntitlement("org_a");
+    expect(await q.lookupEntitlementStatus("org_a")).toBe("expired");
+  });
+
+  it("is a no-op for unknown org", async () => {
+    await q.expireEntitlement("org_missing");
+    expect(await q.lookupEntitlementStatus("org_missing")).toBe("none");
   });
 });
 
 describe("listEntitlements", () => {
-  it("returns pending rows before active rows", async () => {
-    await q.upsertPendingEntitlement("org_pending");
-    await q.upsertPendingEntitlement("org_active");
-    await q.approveEntitlement({ clerkOrgId: "org_active", approvedBy: "u" });
+  it("returns trial rows before active rows before expired rows", async () => {
+    const now = Date.now();
+    await q.createTrialEntitlement({
+      clerkOrgId: "org_trial",
+      trialEndsAt: new Date(now + 14 * 24 * 3600 * 1000),
+    });
+    await q.createTrialEntitlement({
+      clerkOrgId: "org_expired",
+      trialEndsAt: new Date(now - 1000),
+    });
+    await q.expireEntitlement("org_expired");
+    await testDb.db.execute(
+      sql`INSERT INTO entitlements (clerk_org_id, status) VALUES ('org_active', 'active')`,
+    );
     const rows = await q.listEntitlements();
-    expect(rows.map((r) => r.clerkOrgId)).toEqual(["org_pending", "org_active"]);
+    expect(rows.map((r) => r.clerkOrgId)).toEqual([
+      "org_trial",
+      "org_active",
+      "org_expired",
+    ]);
   });
 });
 

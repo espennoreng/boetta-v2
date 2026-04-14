@@ -8,12 +8,12 @@ describe("createTestDb", () => {
     try {
       await db.insert(entitlements).values({
         clerkOrgId: "org_test",
-        status: "pending",
+        status: "trial",
       });
       const rows = await db.select().from(entitlements);
       expect(rows).toHaveLength(1);
       expect(rows[0].clerkOrgId).toBe("org_test");
-      expect(rows[0].status).toBe("pending");
+      expect(rows[0].status).toBe("trial");
     } finally {
       await close();
     }
