@@ -279,10 +279,12 @@ export default function ChatPage({ initialSessionId, initialMessages, agentType 
 
   const handleSessionCreated = useCallback(
     (sessionId: string) => {
-      upsertPlaceholder(sessionId);
+      if (agentType) {
+        upsertPlaceholder(sessionId, agentType);
+      }
       void refresh();
     },
-    [refresh, upsertPlaceholder],
+    [refresh, upsertPlaceholder, agentType],
   );
 
   const handleTitleUpdate = useCallback(
