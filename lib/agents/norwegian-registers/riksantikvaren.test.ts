@@ -148,3 +148,17 @@ describe("riksantikvaren_check — partial failure", () => {
     expect(parsed.error).toMatch(/layers failed/);
   });
 });
+
+describe("riksantikvaren_check — cache miss", () => {
+  it("returns error shape when matrikkel_id is not in cache", async () => {
+    const fetchImpl = allEmptyFetch();
+    const raw = await riksantikvarenCheck(
+      { matrikkel_id: "9999-1-1" },
+      { fetchImpl, cache: new CoordCache(10) },
+    );
+    const parsed = JSON.parse(raw);
+    expect(parsed.findings).toBeNull();
+    expect(parsed.error).toMatch(/resolve_property first/i);
+    expect(parsed.source).toBe("Riksantikvaren");
+  });
+});
