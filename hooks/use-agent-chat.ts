@@ -19,6 +19,7 @@ export interface ChatMessage {
   role: "user" | "assistant";
   text: string;
   attachmentIds?: string[];
+  attachmentNames?: string[];
   toolCalls?: ToolCall[];
   parts?: MessagePart[];
   isThinking?: boolean;
@@ -67,12 +68,12 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
     options.initialSessionId ?? null,
   );
 
-  const sendMessage = useCallback(async (text: string, attachmentIds: string[] = []) => {
+  const sendMessage = useCallback(async (text: string, attachmentIds: string[] = [], attachmentNames: string[] = []) => {
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
       text,
-      ...(attachmentIds.length > 0 ? { attachmentIds } : {}),
+      ...(attachmentIds.length > 0 ? { attachmentIds, attachmentNames } : {}),
     };
     const assistantId = crypto.randomUUID();
     const assistantMessage: ChatMessage = {

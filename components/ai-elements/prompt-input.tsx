@@ -469,6 +469,7 @@ export const PromptInputActionAddScreenshot = ({
 export interface PromptInputMessage {
   text: string;
   attachmentIds: string[];
+  attachmentNames: string[];
 }
 
 export type PromptInputProps = Omit<
@@ -857,19 +858,22 @@ export const PromptInput = ({
           );
         }
         const { uploadAttachment } = await import("@/lib/client/upload-attachment");
-        const attachmentIds = await Promise.all(
+        const uploaded = await Promise.all(
           files.map(async ({ id: _id, ...item }) => {
             if (!item.url || !item.url.startsWith("blob:")) {
               throw new Error("attachment is not a blob URL");
             }
             const blob = await (await fetch(item.url)).blob();
-            const file = new File([blob], item.filename ?? "file", { type: item.mediaType });
+            const filename = item.filename ?? "file";
+            const file = new File([blob], filename, { type: item.mediaType });
             const { attachmentId } = await uploadAttachment({ file, sessionId: sessionId! });
-            return attachmentId;
+            return { attachmentId, filename };
           }),
         );
+        const attachmentIds = uploaded.map((u) => u.attachmentId);
+        const attachmentNames = uploaded.map((u) => u.filename);
 
-        const result = onSubmit({ attachmentIds, text }, event);
+        const result = onSubmit({ attachmentIds, attachmentNames, text }, event);
 
         // Handle both sync and async onSubmit
         if (result instanceof Promise) {

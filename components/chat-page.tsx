@@ -335,7 +335,7 @@ export default function ChatPage({ initialSessionId, initialMessages }: ChatPage
             globalDrop
             multiple
             sessionId={sessionId ?? undefined}
-            onSubmit={({ text, attachmentIds }) => {
+            onSubmit={({ text, attachmentIds, attachmentNames }) => {
               if ((!text.trim() && attachmentIds.length === 0) || status === "streaming")
                 return;
               if (attachmentIds.length > 0 && !sessionId) {
@@ -344,7 +344,7 @@ export default function ChatPage({ initialSessionId, initialMessages }: ChatPage
                 console.error("Cannot upload attachments before a session exists. Send a text message first.");
                 return;
               }
-              sendMessage(text, attachmentIds);
+              sendMessage(text, attachmentIds, attachmentNames);
             }}
           >
             <PromptInputAttachmentsDisplay />
@@ -382,18 +382,22 @@ function ChatMessageItem({
       <Message from="user">
         {message.attachmentIds && message.attachmentIds.length > 0 && (
           <div className="mb-1 flex flex-wrap justify-end gap-1">
-            {message.attachmentIds.map((id) => (
-              <a
-                key={id}
-                href={`/api/files/${id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 rounded-md border bg-muted px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground"
-              >
-                <PaperclipIcon className="size-3" />
-                vedlegg
-              </a>
-            ))}
+            {message.attachmentIds.map((id, i) => {
+              const name = message.attachmentNames?.[i] ?? "vedlegg";
+              return (
+                <a
+                  key={id}
+                  href={`/api/files/${id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={name}
+                  className="inline-flex max-w-[14rem] items-center gap-1 rounded-md border bg-muted px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <PaperclipIcon className="size-3 shrink-0" />
+                  <span className="truncate">{name}</span>
+                </a>
+              );
+            })}
           </div>
         )}
         {message.text && <MessageContent>{message.text}</MessageContent>}
