@@ -31,12 +31,11 @@ describe("registry", () => {
     ]);
   });
 
-  // TODO: re-enable in Task 11 (tiltakshaver-byggesoknad not registered yet)
-  // test("allowedAgentsFor('tiltakshaver') returns the applier slug", () => {
-  //   expect(allowedAgentsFor("tiltakshaver")).toEqual([
-  //     "tiltakshaver-byggesoknad",
-  //   ]);
-  // });
+  test("allowedAgentsFor('tiltakshaver') returns the applier slug", () => {
+    expect(allowedAgentsFor("tiltakshaver")).toEqual([
+      "tiltakshaver-byggesoknad",
+    ]);
+  });
 
   test("allowedAgentsFor for unknown type returns empty array", () => {
     expect(allowedAgentsFor("unknown" as OrgType)).toEqual([]);
@@ -51,10 +50,9 @@ describe("registry", () => {
     expect(agentEnvVarFor("kommune-byggesak-saksbehandler")).toBe(
       "ANTHROPIC_AGENT_ID_KOMMUNE_BYGGESAK_SAKSBEHANDLER",
     );
-    // TODO: re-enable in Task 11
-    // expect(agentEnvVarFor("tiltakshaver-byggesoknad")).toBe(
-    //   "ANTHROPIC_AGENT_ID_TILTAKSHAVER_BYGGESOKNAD",
-    // );
+    expect(agentEnvVarFor("tiltakshaver-byggesoknad")).toBe(
+      "ANTHROPIC_AGENT_ID_TILTAKSHAVER_BYGGESOKNAD",
+    );
   });
 
   test("ORG_TYPE_TO_AGENT_SLUGS has entries for both known types", () => {

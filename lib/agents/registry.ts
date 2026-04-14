@@ -1,9 +1,10 @@
 import type { AgentModule } from "./types";
 import { kommuneByggesakSaksbehandlerAgent } from "./kommune-byggesak-saksbehandler/agent";
+import { tiltakshaverByggesoknadAgent } from "./tiltakshaver-byggesoknad/agent";
 
 const agents: Record<string, AgentModule> = {
   "kommune-byggesak-saksbehandler": kommuneByggesakSaksbehandlerAgent,
-  // "tiltakshaver-byggesoknad": ...   // registered in Task 11
+  "tiltakshaver-byggesoknad": tiltakshaverByggesoknadAgent,
 };
 
 export type OrgType = "municipality" | "tiltakshaver";
