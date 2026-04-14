@@ -76,14 +76,14 @@ export function AgentSidebar({ sidebarAgents }: AgentSidebarProps) {
             <SidebarGroupContent>
               <SidebarMenu>
                 {loading && sessions.length === 0 ? (
-                  <SidebarMenuItem>
-                    <div className="px-2 py-1 text-muted-foreground text-xs">
+                  <SidebarMenuItem className="group-data-[collapsible=icon]:hidden">
+                    <div className="px-3 py-1 text-muted-foreground text-xs">
                       Laster…
                     </div>
                   </SidebarMenuItem>
                 ) : sessions.length === 0 ? (
-                  <SidebarMenuItem>
-                    <div className="px-2 py-1 text-muted-foreground text-xs">
+                  <SidebarMenuItem className="group-data-[collapsible=icon]:hidden">
+                    <div className="px-3 py-1 text-muted-foreground text-xs">
                       Ingen {agent.sessionGroupLabel.toLowerCase()} enda
                     </div>
                   </SidebarMenuItem>
@@ -175,14 +175,14 @@ export function AgentSidebar({ sidebarAgents }: AgentSidebarProps) {
               <SidebarGroupContent>
                 <SidebarMenu>
                   {loading && sessions.length === 0 ? (
-                    <SidebarMenuItem>
-                      <div className="px-2 py-1 text-muted-foreground text-xs">
+                    <SidebarMenuItem className="group-data-[collapsible=icon]:hidden">
+                      <div className="px-3 py-1 text-muted-foreground text-xs">
                         Laster…
                       </div>
                     </SidebarMenuItem>
                   ) : agentSessions.length === 0 ? (
-                    <SidebarMenuItem>
-                      <div className="px-2 py-1 text-muted-foreground text-xs">
+                    <SidebarMenuItem className="group-data-[collapsible=icon]:hidden">
+                      <div className="px-3 py-1 text-muted-foreground text-xs">
                         Ingen {agent.sessionGroupLabel.toLowerCase()} enda
                       </div>
                     </SidebarMenuItem>
