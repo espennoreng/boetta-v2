@@ -4,6 +4,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { nbNO } from "@clerk/localizations";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -38,7 +39,7 @@ export default function RootLayout({
           inter.variable,
         )}
       >
-        <body className="min-h-full flex flex-col">{children}</body>
+        <body className="min-h-full flex flex-col"><TooltipProvider>{children}</TooltipProvider></body>
       </html>
     </ClerkProvider>
   );
