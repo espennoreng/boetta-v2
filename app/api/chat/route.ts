@@ -45,6 +45,7 @@ export async function POST(request: Request) {
 
   let sessionId = existingSessionId;
   let eventForAudit: "session.created" | "session.opened" = "session.opened";
+  let needsTitle = false;
 
   if (!sessionId) {
     sessionId = await createSession({
@@ -52,6 +53,7 @@ export async function POST(request: Request) {
       clerkUserId: ctx.userId,
     });
     eventForAudit = "session.created";
+    needsTitle = true;
   } else {
     const ownership = await queries.getSessionOwnership(sessionId);
     if (!ownership || ownership.clerkOrgId !== ctx.orgId) {
@@ -60,6 +62,7 @@ export async function POST(request: Request) {
         { status: 403, headers: { "Content-Type": "application/json" } },
       );
     }
+    needsTitle = !ownership.title || ownership.title.trim().length === 0;
   }
 
   await audit.logEvent({
@@ -79,7 +82,6 @@ export async function POST(request: Request) {
       queries.setAnthropicFileId({ id, anthropicFileId }),
   });
 
-  const isNewSession = eventForAudit === "session.created";
   const encoder = new TextEncoder();
 
   const readable = new ReadableStream({
@@ -129,10 +131,10 @@ export async function POST(request: Request) {
           );
         }
 
-        // For newly created sessions with a non-empty assistant response,
+        // For sessions without a title yet and a non-empty assistant response,
         // set a title — prefer the resolved property address if available,
         // otherwise generate one via Haiku.
-        if (isNewSession && assistantText.trim().length > 0) {
+        if (needsTitle && assistantText.trim().length > 0) {
           const title =
             resolvedAddress ??
             (await generateSessionTitle({
