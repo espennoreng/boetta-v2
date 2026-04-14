@@ -25,9 +25,7 @@ export function LandingNav() {
             </Button>
             <Button
               size="sm"
-              render={
-                <a href="mailto:espennoreng@gmail.com?subject=Interessert%20i%20Boetta" />
-              }
+              render={<Link href="/sign-up" />}
               nativeButton={false}
             >
               Kom i gang

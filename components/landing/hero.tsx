@@ -15,9 +15,7 @@ export function Hero() {
         <div className="flex flex-wrap gap-3">
           <Button
             size="lg"
-            render={
-              <a href="mailto:espennoreng@gmail.com?subject=Interessert%20i%20Boetta" />
-            }
+            render={<Link href="/sign-up" />}
             nativeButton={false}
           >
             Kom i gang
