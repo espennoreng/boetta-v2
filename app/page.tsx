@@ -1,13 +1,6 @@
 import type { Metadata } from "next";
 import { LandingNav } from "@/components/landing/nav";
 import { Hero } from "@/components/landing/hero";
-import { Why } from "@/components/landing/why";
-import { How } from "@/components/landing/how";
-import { Features } from "@/components/landing/features";
-import { Legal } from "@/components/landing/legal";
-import { Security } from "@/components/landing/security";
-import { Audience } from "@/components/landing/audience";
-import { CTA } from "@/components/landing/cta";
 import { LandingFooter } from "@/components/landing/footer";
 
 export const metadata: Metadata = {
@@ -20,15 +13,8 @@ export default function LandingPage() {
   return (
     <>
       <LandingNav />
-      <main>
+      <main className="flex flex-1 flex-col">
         <Hero />
-        <Why />
-        <How />
-        <Features />
-        <Legal />
-        <Security />
-        <Audience />
-        <CTA />
       </main>
       <LandingFooter />
     </>
