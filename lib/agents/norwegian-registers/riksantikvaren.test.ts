@@ -110,3 +110,41 @@ describe("riksantikvaren_check — all layers hit", () => {
     expect(parsed.findings.partial_errors).toBeUndefined();
   });
 });
+
+describe("riksantikvaren_check — partial failure", () => {
+  it("populates partial_errors when one layer 5xx's, other layers still parse", async () => {
+    const fetchImpl = (async (url: string) => {
+      if (/MapServer\/6\/query/.test(url)) {
+        return new Response("boom", { status: 503, statusText: "Service Unavailable" });
+      }
+      if (/MapServer\/7\/query/.test(url)) {
+        return new Response(JSON.stringify(lokaliteterHit), { status: 200 });
+      }
+      return new Response(JSON.stringify(emptyCollection), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const raw = await riksantikvarenCheck(
+      { matrikkel_id: "4601-207-80" },
+      { fetchImpl, cache: primedCache() },
+    );
+    const parsed = JSON.parse(raw);
+    expect(parsed.findings.has_any).toBe(true);
+    expect(parsed.findings.lokaliteter).toHaveLength(1);
+    expect(parsed.findings.enkeltminner).toEqual([]);
+    expect(parsed.findings.partial_errors).toEqual(
+      expect.arrayContaining([expect.stringMatching(/^layer_6:/)]),
+    );
+  });
+
+  it("returns total-failure shape when all 6 layers throw", async () => {
+    const fetchImpl = (async () =>
+      new Response("boom", { status: 503, statusText: "Service Unavailable" })) as unknown as typeof fetch;
+    const raw = await riksantikvarenCheck(
+      { matrikkel_id: "4601-207-80" },
+      { fetchImpl, cache: primedCache() },
+    );
+    const parsed = JSON.parse(raw);
+    expect(parsed.findings).toBeNull();
+    expect(parsed.error).toMatch(/layers failed/);
+  });
+});
