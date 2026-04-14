@@ -282,7 +282,7 @@ export default function ChatPage({ initialSessionId, initialMessages }: ChatPage
     [applyTitle],
   );
 
-  const { messages, status, sendMessage } = useAgentChat({
+  const { messages, status, sendMessage, sessionId } = useAgentChat({
     initialSessionId,
     initialMessages,
     onSessionCreated: handleSessionCreated,
@@ -328,10 +328,17 @@ export default function ChatPage({ initialSessionId, initialMessages }: ChatPage
           <PromptInput
             globalDrop
             multiple
-            onSubmit={({ text, files }) => {
-              if ((!text.trim() && files.length === 0) || status === "streaming")
+            sessionId={sessionId ?? undefined}
+            onSubmit={({ text, attachmentIds }) => {
+              if ((!text.trim() && attachmentIds.length === 0) || status === "streaming")
                 return;
-              sendMessage(text, files);
+              if (attachmentIds.length > 0 && !sessionId) {
+                // New session: no sessionId yet. Guard — user should send a text message first.
+                // uploadAttachment requires an existing sessionId owned by the org.
+                console.error("Cannot upload attachments before a session exists. Send a text message first.");
+                return;
+              }
+              sendMessage(text, attachmentIds);
             }}
           >
             <PromptInputAttachmentsDisplay />
@@ -367,15 +374,21 @@ function ChatMessageItem({
   if (message.role === "user") {
     return (
       <Message from="user">
-        {message.files && message.files.length > 0 && (
-          <Attachments variant="inline" className="mb-1 justify-end">
-            {message.files.map((file, i) => (
-              <Attachment key={i} data={{ ...file, id: String(i) }}>
-                <AttachmentPreview />
-                <AttachmentInfo />
-              </Attachment>
+        {message.attachmentIds && message.attachmentIds.length > 0 && (
+          <div className="mb-1 flex flex-wrap justify-end gap-1">
+            {message.attachmentIds.map((id) => (
+              <a
+                key={id}
+                href={`/api/files/${id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 rounded-md border bg-muted px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <PaperclipIcon className="size-3" />
+                vedlegg
+              </a>
             ))}
-          </Attachments>
+          </div>
         )}
         {message.text && <MessageContent>{message.text}</MessageContent>}
       </Message>
