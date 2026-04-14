@@ -108,10 +108,15 @@ const AttachmentItem = memo(({ attachment, onRemove }: AttachmentItemProps) => {
 
 AttachmentItem.displayName = "AttachmentItem";
 
-const AttachFilesButton = () => {
+const AttachFilesButton = ({ sessionId }: { sessionId?: string | null }) => {
   const attachments = usePromptInputAttachments();
+  const noSession = !sessionId;
   return (
-    <PromptInputButton onClick={() => attachments.openFileDialog()}>
+    <PromptInputButton
+      disabled={noSession}
+      tooltip={noSession ? "Send en tekstmelding først for å starte samtalen, deretter kan du legge ved filer." : undefined}
+      onClick={noSession ? undefined : () => attachments.openFileDialog()}
+    >
       <PaperclipIcon className="size-4" />
     </PromptInputButton>
   );
@@ -326,6 +331,7 @@ export default function ChatPage({ initialSessionId, initialMessages }: ChatPage
       <div className="mx-auto w-full max-w-3xl px-4 pb-4">
         <PromptInputProvider>
           <PromptInput
+            accept="application/pdf,image/png,image/jpeg,image/webp"
             globalDrop
             multiple
             sessionId={sessionId ?? undefined}
@@ -333,8 +339,8 @@ export default function ChatPage({ initialSessionId, initialMessages }: ChatPage
               if ((!text.trim() && attachmentIds.length === 0) || status === "streaming")
                 return;
               if (attachmentIds.length > 0 && !sessionId) {
-                // New session: no sessionId yet. Guard — user should send a text message first.
-                // uploadAttachment requires an existing sessionId owned by the org.
+                // Defense-in-depth: attach button is already disabled without a sessionId,
+                // but guard here as well in case files slip through another path.
                 console.error("Cannot upload attachments before a session exists. Send a text message first.");
                 return;
               }
@@ -347,7 +353,7 @@ export default function ChatPage({ initialSessionId, initialMessages }: ChatPage
             </PromptInputBody>
             <PromptInputFooter>
               <PromptInputTools>
-                <AttachFilesButton />
+                <AttachFilesButton sessionId={sessionId} />
               </PromptInputTools>
               <PromptInputSubmit
                 status={status === "streaming" ? "streaming" : "ready"}
