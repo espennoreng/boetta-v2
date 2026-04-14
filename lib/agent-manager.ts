@@ -250,6 +250,22 @@ export async function* streamWithToolHandling(
           const extracted = extractCitationsFromToolResult(customEvent.name, result);
           collectedCitations.push(...extracted);
 
+          if (customEvent.name === "resolve_property") {
+            try {
+              const data = JSON.parse(result);
+              if (
+                data &&
+                typeof data.address === "string" &&
+                data.address.length > 0 &&
+                !data.candidates
+              ) {
+                yield { type: "property_address", address: data.address };
+              }
+            } catch {
+              // ignore parse errors — fall back to Haiku title
+            }
+          }
+
           await client.beta.sessions.events.send(sessionId, {
             events: [
               {

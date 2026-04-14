@@ -85,6 +85,7 @@ export async function POST(request: Request) {
   const readable = new ReadableStream({
     async start(controller) {
       let assistantText = "";
+      let resolvedAddress: string | null = null;
       try {
         async function* runStream() {
           try {
@@ -112,6 +113,13 @@ export async function POST(request: Request) {
             assistantText += event.text;
           }
 
+          // Internal event: capture resolved property address for title,
+          // but don't forward to the client.
+          if (event.type === "property_address" && typeof event.address === "string") {
+            resolvedAddress ??= event.address;
+            continue;
+          }
+
           // Forward every event except `done` — we defer `done` until after
           // we have optionally emitted `session_title`.
           if (event.type === "done") break;
@@ -122,12 +130,15 @@ export async function POST(request: Request) {
         }
 
         // For newly created sessions with a non-empty assistant response,
-        // generate a title via Haiku, persist it, and emit it over SSE.
+        // set a title — prefer the resolved property address if available,
+        // otherwise generate one via Haiku.
         if (isNewSession && assistantText.trim().length > 0) {
-          const title = await generateSessionTitle({
-            userMessage: message,
-            assistantMessage: assistantText,
-          });
+          const title =
+            resolvedAddress ??
+            (await generateSessionTitle({
+              userMessage: message,
+              assistantMessage: assistantText,
+            }));
           if (title) {
             await queries.updateSessionTitle(sessionId!, title);
             controller.enqueue(
