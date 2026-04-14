@@ -56,4 +56,27 @@ export interface AgentModule {
   handleToolCall(name: string, input: Record<string, unknown>): Promise<string>;
 
   getDisplayName(toolName: string, input?: Record<string, unknown>): string | null;
+
+  /**
+   * Optional UI metadata used by the sidebar and session-creation pages.
+   * Each string is a user-facing Norwegian label.
+   */
+  ui?: {
+    newSessionLabel: string;   // e.g. "Ny byggesak"
+    sessionGroupLabel: string; // e.g. "Byggesaker"
+  };
+}
+
+export interface ToolBundle {
+  id: string;
+  definitions: CustomToolDefinition[];
+  ownsTool(name: string): boolean;
+  handleToolCall(name: string, input: Record<string, unknown>): Promise<string>;
+  getDisplayName(toolName: string, input?: Record<string, unknown>): string | null;
+  /**
+   * Optional usage guidance that will be composed into an agent's system prompt
+   * when the bundle is registered with the agent. Must own its own `## Heading`
+   * — the composer does NOT inject a wrapper header.
+   */
+  promptFragment?: string;
 }
