@@ -120,7 +120,8 @@ export const byggesakAgent: AgentModule = {
   createAgentConfig() {
     return {
       name: "Byggesak Assistant",
-      model: "claude-sonnet-4-6",
+      //model: "claude-sonnet-4-6",
+	  model: "claude-haiku-4-5-20251001",
       system: buildSystemPrompt(),
       tools: [
         { type: "agent_toolset_20260401" as const },
