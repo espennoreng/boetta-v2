@@ -108,10 +108,15 @@ const AttachmentItem = memo(({ attachment, onRemove }: AttachmentItemProps) => {
 
 AttachmentItem.displayName = "AttachmentItem";
 
-const AttachFilesButton = () => {
+const AttachFilesButton = ({ sessionId }: { sessionId?: string | null }) => {
   const attachments = usePromptInputAttachments();
+  const noSession = !sessionId;
   return (
-    <PromptInputButton onClick={() => attachments.openFileDialog()}>
+    <PromptInputButton
+      disabled={noSession}
+      tooltip={noSession ? "Send en tekstmelding først for å starte samtalen, deretter kan du legge ved filer." : undefined}
+      onClick={noSession ? undefined : () => attachments.openFileDialog()}
+    >
       <PaperclipIcon className="size-4" />
     </PromptInputButton>
   );
@@ -282,7 +287,7 @@ export default function ChatPage({ initialSessionId, initialMessages }: ChatPage
     [applyTitle],
   );
 
-  const { messages, status, sendMessage } = useAgentChat({
+  const { messages, status, sendMessage, sessionId } = useAgentChat({
     initialSessionId,
     initialMessages,
     onSessionCreated: handleSessionCreated,
@@ -326,12 +331,20 @@ export default function ChatPage({ initialSessionId, initialMessages }: ChatPage
       <div className="mx-auto w-full max-w-3xl px-4 pb-4">
         <PromptInputProvider>
           <PromptInput
+            accept="application/pdf,image/png,image/jpeg,image/webp"
             globalDrop
             multiple
-            onSubmit={({ text, files }) => {
-              if ((!text.trim() && files.length === 0) || status === "streaming")
+            sessionId={sessionId ?? undefined}
+            onSubmit={({ text, attachmentIds }) => {
+              if ((!text.trim() && attachmentIds.length === 0) || status === "streaming")
                 return;
-              sendMessage(text, files);
+              if (attachmentIds.length > 0 && !sessionId) {
+                // Defense-in-depth: attach button is already disabled without a sessionId,
+                // but guard here as well in case files slip through another path.
+                console.error("Cannot upload attachments before a session exists. Send a text message first.");
+                return;
+              }
+              sendMessage(text, attachmentIds);
             }}
           >
             <PromptInputAttachmentsDisplay />
@@ -340,7 +353,7 @@ export default function ChatPage({ initialSessionId, initialMessages }: ChatPage
             </PromptInputBody>
             <PromptInputFooter>
               <PromptInputTools>
-                <AttachFilesButton />
+                <AttachFilesButton sessionId={sessionId} />
               </PromptInputTools>
               <PromptInputSubmit
                 status={status === "streaming" ? "streaming" : "ready"}
@@ -367,15 +380,21 @@ function ChatMessageItem({
   if (message.role === "user") {
     return (
       <Message from="user">
-        {message.files && message.files.length > 0 && (
-          <Attachments variant="inline" className="mb-1 justify-end">
-            {message.files.map((file, i) => (
-              <Attachment key={i} data={{ ...file, id: String(i) }}>
-                <AttachmentPreview />
-                <AttachmentInfo />
-              </Attachment>
+        {message.attachmentIds && message.attachmentIds.length > 0 && (
+          <div className="mb-1 flex flex-wrap justify-end gap-1">
+            {message.attachmentIds.map((id) => (
+              <a
+                key={id}
+                href={`/api/files/${id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 rounded-md border bg-muted px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <PaperclipIcon className="size-3" />
+                vedlegg
+              </a>
             ))}
-          </Attachments>
+          </div>
         )}
         {message.text && <MessageContent>{message.text}</MessageContent>}
       </Message>

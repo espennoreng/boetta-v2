@@ -78,24 +78,6 @@ import {
 // Helpers
 // ============================================================================
 
-const convertBlobUrlToDataUrl = async (url: string): Promise<string | null> => {
-  try {
-    const response = await fetch(url);
-    const blob = await response.blob();
-    // FileReader uses callback-based API, wrapping in Promise is necessary
-    // oxlint-disable-next-line eslint-plugin-promise(avoid-new)
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      // oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
-      reader.onloadend = () => resolve(reader.result as string);
-      // oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    return null;
-  }
-};
 
 const captureScreenshot = async (): Promise<File | null> => {
   if (
@@ -486,7 +468,7 @@ export const PromptInputActionAddScreenshot = ({
 
 export interface PromptInputMessage {
   text: string;
-  files: FileUIPart[];
+  attachmentIds: string[];
 }
 
 export type PromptInputProps = Omit<
@@ -496,6 +478,8 @@ export type PromptInputProps = Omit<
   // e.g., "image/*" or leave undefined for any
   accept?: string;
   multiple?: boolean;
+  /** Session id used to presign attachment uploads. Required when attaching files. */
+  sessionId?: string;
   // When true, accepts drops anywhere on document. Default false (opt-in).
   globalDrop?: boolean;
   // Render a hidden input with given name and keep it in sync for native form posts. Default false.
@@ -518,6 +502,7 @@ export const PromptInput = ({
   className,
   accept,
   multiple,
+  sessionId,
   globalDrop,
   syncHiddenInput,
   maxFiles,
@@ -863,22 +848,28 @@ export const PromptInput = ({
       }
 
       try {
-        // Convert blob URLs to data URLs asynchronously
-        const convertedFiles: FileUIPart[] = await Promise.all(
+        // Upload all attached files to R2 in parallel, then submit attachment ids.
+        // TODO(perf): hoist this into add() so progress can render before submit.
+        if (!sessionId && files.length > 0) {
+          throw new Error(
+            "PromptInput needs sessionId to upload attachments. " +
+              "Pass <PromptInput sessionId={sessionId} ...>.",
+          );
+        }
+        const { uploadAttachment } = await import("@/lib/client/upload-attachment");
+        const attachmentIds = await Promise.all(
           files.map(async ({ id: _id, ...item }) => {
-            if (item.url?.startsWith("blob:")) {
-              const dataUrl = await convertBlobUrlToDataUrl(item.url);
-              // If conversion failed, keep the original blob URL
-              return {
-                ...item,
-                url: dataUrl ?? item.url,
-              };
+            if (!item.url || !item.url.startsWith("blob:")) {
+              throw new Error("attachment is not a blob URL");
             }
-            return item;
-          })
+            const blob = await (await fetch(item.url)).blob();
+            const file = new File([blob], item.filename ?? "file", { type: item.mediaType });
+            const { attachmentId } = await uploadAttachment({ file, sessionId: sessionId! });
+            return attachmentId;
+          }),
         );
 
-        const result = onSubmit({ files: convertedFiles, text }, event);
+        const result = onSubmit({ attachmentIds, text }, event);
 
         // Handle both sync and async onSubmit
         if (result instanceof Promise) {

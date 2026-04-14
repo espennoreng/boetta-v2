@@ -1,6 +1,5 @@
 "use client";
 
-import type { FileUIPart } from "ai";
 import { useState, useCallback, useRef } from "react";
 import type { Citation } from "@/lib/citations";
 
@@ -19,7 +18,7 @@ export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   text: string;
-  files?: FileUIPart[];
+  attachmentIds?: string[];
   toolCalls?: ToolCall[];
   parts?: MessagePart[];
   isThinking?: boolean;
@@ -64,13 +63,16 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
   const sessionIdRef = useRef<string | null>(
     options.initialSessionId ?? null,
   );
+  const [sessionId, setSessionId] = useState<string | null>(
+    options.initialSessionId ?? null,
+  );
 
-  const sendMessage = useCallback(async (text: string, files: FileUIPart[] = []) => {
+  const sendMessage = useCallback(async (text: string, attachmentIds: string[] = []) => {
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
       text,
-      ...(files.length > 0 ? { files } : {}),
+      ...(attachmentIds.length > 0 ? { attachmentIds } : {}),
     };
     const assistantId = crypto.randomUUID();
     const assistantMessage: ChatMessage = {
@@ -91,7 +93,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
         body: JSON.stringify({
           message: text,
           sessionId: sessionIdRef.current,
-          ...(files.length > 0 ? { files } : {}),
+          ...(attachmentIds.length > 0 ? { attachmentIds } : {}),
         }),
       });
 
@@ -100,6 +102,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
         newSessionId !== null && newSessionId !== sessionIdRef.current;
       if (newSessionId) {
         sessionIdRef.current = newSessionId;
+        setSessionId(newSessionId);
         if (
           typeof window !== "undefined" &&
           !window.location.pathname.includes(newSessionId)
@@ -250,7 +253,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
     }
   }, [options.onSessionCreated, options.onTitleUpdate]);
 
-  return { messages, status, sendMessage };
+  return { messages, status, sendMessage, sessionId };
 }
 
 export type { Citation } from "@/lib/citations";

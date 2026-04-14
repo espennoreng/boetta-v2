@@ -5,6 +5,7 @@ import {
   text,
   timestamp,
   bigserial,
+  bigint,
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -74,6 +75,39 @@ export const auditLog = pgTable(
     ),
   }),
 );
+
+export const attachments = pgTable(
+  "attachments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clerkOrgId: text("clerk_org_id").notNull(),
+    clerkUserId: text("clerk_user_id").notNull(),
+    anthropicSessionId: text("anthropic_session_id").notNull(),
+    r2Key: text("r2_key").notNull(),
+    mime: text("mime").notNull(),
+    sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
+    originalName: text("original_name").notNull(),
+    status: text("status").notNull(), // 'pending' | 'uploaded' | 'failed'
+    anthropicFileId: text("anthropic_file_id"),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .default(sql`now()`),
+    uploadedAt: timestamp("uploaded_at", { withTimezone: true, mode: "date" }),
+  },
+  (t) => ({
+    sessionIdx: index("attachments_session_idx").on(
+      t.anthropicSessionId,
+      t.createdAt,
+    ),
+    orgCreatedIdx: index("attachments_org_created_idx").on(
+      t.clerkOrgId,
+      t.createdAt,
+    ),
+  }),
+);
+
+export type Attachment = typeof attachments.$inferSelect;
+export type NewAttachment = typeof attachments.$inferInsert;
 
 export type Entitlement = typeof entitlements.$inferSelect;
 export type NewEntitlement = typeof entitlements.$inferInsert;

@@ -172,3 +172,92 @@ describe("updateSessionTitle", () => {
     expect(await q.getSessionOwnership("sess_missing")).toBeNull();
   });
 });
+
+describe("createAttachment / markAttachmentUploaded", () => {
+  it("inserts a pending row and returns the id", async () => {
+    const id = await q.createAttachment({
+      clerkOrgId: "org_a",
+      clerkUserId: "user_1",
+      anthropicSessionId: "sess_1",
+      r2Key: "org/org_a/session/sess_1/abc-doc.pdf",
+      mime: "application/pdf",
+      sizeBytes: 1234,
+      originalName: "doc.pdf",
+    });
+    expect(typeof id).toBe("string");
+    const row = await q.getAttachmentForDownload({ id, clerkOrgId: "org_a" });
+    expect(row).toBeNull(); // not yet uploaded — getAttachmentForDownload requires status='uploaded'
+  });
+
+  it("markAttachmentUploaded flips status and sets uploaded_at", async () => {
+    const id = await q.createAttachment({
+      clerkOrgId: "org_a",
+      clerkUserId: "user_1",
+      anthropicSessionId: "sess_1",
+      r2Key: "k",
+      mime: "application/pdf",
+      sizeBytes: 1,
+      originalName: "x.pdf",
+    });
+    await q.markAttachmentUploaded({ id, clerkOrgId: "org_a" });
+    const row = await q.getAttachmentForDownload({ id, clerkOrgId: "org_a" });
+    expect(row?.status).toBe("uploaded");
+    expect(row?.uploadedAt).toBeInstanceOf(Date);
+  });
+
+  it("markAttachmentUploaded refuses to flip across orgs", async () => {
+    const id = await q.createAttachment({
+      clerkOrgId: "org_a",
+      clerkUserId: "user_1",
+      anthropicSessionId: "sess_1",
+      r2Key: "k",
+      mime: "application/pdf",
+      sizeBytes: 1,
+      originalName: "x.pdf",
+    });
+    await q.markAttachmentUploaded({ id, clerkOrgId: "org_b" });
+    const row = await q.getAttachmentForDownload({ id, clerkOrgId: "org_a" });
+    expect(row).toBeNull();
+  });
+});
+
+describe("getAttachmentsForChat", () => {
+  it("returns only uploaded rows in the given org and id set", async () => {
+    const idA = await q.createAttachment({
+      clerkOrgId: "org_a", clerkUserId: "u", anthropicSessionId: "s",
+      r2Key: "a", mime: "application/pdf", sizeBytes: 1, originalName: "a.pdf",
+    });
+    const idB = await q.createAttachment({
+      clerkOrgId: "org_a", clerkUserId: "u", anthropicSessionId: "s",
+      r2Key: "b", mime: "application/pdf", sizeBytes: 1, originalName: "b.pdf",
+    });
+    const idForeign = await q.createAttachment({
+      clerkOrgId: "org_b", clerkUserId: "u", anthropicSessionId: "s",
+      r2Key: "c", mime: "application/pdf", sizeBytes: 1, originalName: "c.pdf",
+    });
+    await q.markAttachmentUploaded({ id: idA, clerkOrgId: "org_a" });
+
+    const rows = await q.getAttachmentsForChat({
+      ids: [idA, idB, idForeign],
+      clerkOrgId: "org_a",
+    });
+    expect(rows.map((r) => r.id)).toEqual([idA]);
+  });
+});
+
+describe("setAnthropicFileId / clearAnthropicFileId", () => {
+  it("sets and clears the file_id", async () => {
+    const id = await q.createAttachment({
+      clerkOrgId: "org_a", clerkUserId: "u", anthropicSessionId: "s",
+      r2Key: "k", mime: "application/pdf", sizeBytes: 1, originalName: "x.pdf",
+    });
+    await q.markAttachmentUploaded({ id, clerkOrgId: "org_a" });
+    await q.setAnthropicFileId({ id, anthropicFileId: "file_123" });
+    let row = await q.getAttachmentForDownload({ id, clerkOrgId: "org_a" });
+    expect(row?.anthropicFileId).toBe("file_123");
+
+    await q.clearAnthropicFileId({ id });
+    row = await q.getAttachmentForDownload({ id, clerkOrgId: "org_a" });
+    expect(row?.anthropicFileId).toBeNull();
+  });
+});
