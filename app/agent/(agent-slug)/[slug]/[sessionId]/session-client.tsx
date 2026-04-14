@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import ChatPage from "@/components/chat-page";
 import type { ChatMessage } from "@/hooks/use-agent-chat";
 import { Shimmer } from "@/components/ai-elements/shimmer";
@@ -38,7 +39,7 @@ export default function SessionClient({
       <div className="flex h-dvh items-center justify-center">
         <div className="space-y-2 text-center">
           <p className="text-sm text-muted-foreground">{error}</p>
-          <a href="/agent" className="text-sm underline">Start en ny samtale</a>
+          <Link href="/agent" className="text-sm underline">Start en ny samtale</Link>
         </div>
       </div>
     );

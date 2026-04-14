@@ -1,5 +1,5 @@
 import { clerkClient } from "@clerk/nextjs/server";
-import { getCurrentContext, type NotActiveError } from "@/lib/auth";
+import { getCurrentContext } from "@/lib/auth";
 import { allowedAgentsFor, getAgent, type OrgType } from "@/lib/agents/registry";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AgentSidebar } from "./_components/agent-sidebar";
