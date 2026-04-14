@@ -91,9 +91,9 @@ export default async function AdminPage() {
                   <Select
                     name="orgType"
                     defaultValue={
-                      o.orgType === "municipality" || o.orgType === "business"
+                      o.orgType === "municipality" || o.orgType === "tiltakshaver"
                         ? o.orgType
-                        : "business"
+                        : "tiltakshaver"
                     }
                   >
                     <SelectTrigger size="sm" className="w-36">
@@ -101,7 +101,7 @@ export default async function AdminPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="municipality">Kommune</SelectItem>
-                      <SelectItem value="business">Bedrift</SelectItem>
+                      <SelectItem value="tiltakshaver">Tiltakshaver</SelectItem>
                     </SelectContent>
                   </Select>
                   <Button type="submit" size="sm">

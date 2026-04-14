@@ -52,6 +52,7 @@ interface SSEEvent {
 interface UseAgentChatOptions {
   initialSessionId?: string | null;
   initialMessages?: ChatMessage[];
+  agentType?: string;
   onSessionCreated?: (sessionId: string) => void;
   onTitleUpdate?: (sessionId: string, title: string) => void;
 }
@@ -88,7 +89,13 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
         typeof window !== "undefined" &&
         !window.location.pathname.includes(newSessionId)
       ) {
-        window.history.replaceState(null, "", `/agent/${newSessionId}`);
+        window.history.replaceState(
+          {},
+          "",
+          options.agentType
+            ? `/agent/${options.agentType}/${newSessionId}`
+            : `/agent/${newSessionId}`,
+        );
       }
       options.onSessionCreated?.(newSessionId);
       return newSessionId;
@@ -149,6 +156,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
           message: text,
           sessionId: sessionIdRef.current,
           ...(attachmentIds.length > 0 ? { attachmentIds } : {}),
+          ...(options.agentType && !sessionIdRef.current ? { agentType: options.agentType } : {}),
         }),
         signal: controller.signal,
       });
@@ -163,7 +171,13 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
           typeof window !== "undefined" &&
           !window.location.pathname.includes(newSessionId)
         ) {
-          window.history.replaceState(null, "", `/agent/${newSessionId}`);
+          window.history.replaceState(
+            {},
+            "",
+            options.agentType
+              ? `/agent/${options.agentType}/${newSessionId}`
+              : `/agent/${newSessionId}`,
+          );
         }
         if (isNewSession) {
           options.onSessionCreated?.(newSessionId);
@@ -318,7 +332,7 @@ export function useAgentChat(options: UseAgentChatOptions = {}) {
         ),
       );
     }
-  }, [options.onSessionCreated, options.onTitleUpdate]);
+  }, [options.onSessionCreated, options.onTitleUpdate, options.agentType]);
 
   const stopMessage = useCallback(async () => {
     const controller = abortControllerRef.current;

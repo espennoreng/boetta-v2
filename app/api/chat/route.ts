@@ -8,6 +8,8 @@ import { makeAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { generateSessionTitle } from "@/lib/session-title";
 import { resolveAttachmentsForChat } from "@/lib/attachments";
+import { clerkClient } from "@clerk/nextjs/server";
+import { allowedAgentsFor, type OrgType } from "@/lib/agents/registry";
 
 const queries = makeQueries(db);
 const audit = makeAudit(db);
@@ -24,7 +26,12 @@ export async function POST(request: Request) {
     );
   }
 
-  let parsedBody: { message: string; sessionId?: string; attachmentIds?: string[] };
+  let parsedBody: {
+    message: string;
+    sessionId?: string;
+    attachmentIds?: string[];
+    agentType?: string;
+  };
   try {
     parsedBody = (await request.json()) as typeof parsedBody;
   } catch {
@@ -48,7 +55,29 @@ export async function POST(request: Request) {
   let needsTitle = false;
 
   if (!sessionId) {
+    const agentType = parsedBody.agentType;
+    if (typeof agentType !== "string" || agentType.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "agentType required for new session" }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    // Validate against org type, same as /api/session POST
+    const clerk = await clerkClient();
+    const org = await clerk.organizations.getOrganization({
+      organizationId: ctx.orgId,
+    });
+    const orgType = org.publicMetadata?.orgType as OrgType | undefined;
+    if (!allowedAgentsFor(orgType).includes(agentType)) {
+      return new Response(
+        JSON.stringify({ error: `Agent ${agentType} not allowed for this org` }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
     sessionId = await createSession({
+      agentType,
       clerkOrgId: ctx.orgId,
       clerkUserId: ctx.userId,
     });
@@ -73,6 +102,16 @@ export async function POST(request: Request) {
     subjectId: sessionId,
   });
 
+  // We now always have a sessionId. Resolve the agentType for the stream.
+  const resolvedAgentType = await queries.getAgentTypeBySessionId(sessionId!);
+  if (!resolvedAgentType) {
+    return new Response(
+      JSON.stringify({ error: "Session ownership missing agentType" }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
+    );
+  }
+  const agentType: string = resolvedAgentType;
+
   const rows = attachmentIds.length
     ? await queries.getAttachmentsForChat({ ids: attachmentIds, clerkOrgId: ctx.orgId })
     : [];
@@ -91,7 +130,7 @@ export async function POST(request: Request) {
       try {
         async function* runStream() {
           try {
-            yield* streamWithToolHandling(sessionId!, message, resolved);
+            yield* streamWithToolHandling(sessionId!, agentType, message, resolved);
           } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             if (!msg.includes("stale file_id")) throw err;
@@ -106,7 +145,7 @@ export async function POST(request: Request) {
               setAnthropicFileId: async ({ id, anthropicFileId }) =>
                 queries.setAnthropicFileId({ id, anthropicFileId }),
             });
-            yield* streamWithToolHandling(sessionId!, message, reResolved);
+            yield* streamWithToolHandling(sessionId!, agentType, message, reResolved);
           }
         }
 

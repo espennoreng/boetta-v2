@@ -82,12 +82,14 @@ export function makeQueries(db: AnyDb) {
       anthropicSessionId: string;
       clerkOrgId: string;
       clerkUserId: string;
+      agentType: string;
       title?: string;
     }) {
       await db.insert(sessionOwnership).values({
         anthropicSessionId: params.anthropicSessionId,
         clerkOrgId: params.clerkOrgId,
         clerkUserId: params.clerkUserId,
+        agentType: params.agentType,
         title: params.title ?? null,
       });
     },
@@ -101,11 +103,21 @@ export function makeQueries(db: AnyDb) {
       return row ?? null;
     },
 
+    async getAgentTypeBySessionId(anthropicSessionId: string): Promise<string | null> {
+      const [row] = await db
+        .select({ agentType: sessionOwnership.agentType })
+        .from(sessionOwnership)
+        .where(eq(sessionOwnership.anthropicSessionId, anthropicSessionId))
+        .limit(1);
+      return row?.agentType ?? null;
+    },
+
     async listSessionsForOrg(clerkOrgId: string) {
       return db
         .select({
           anthropicSessionId: sessionOwnership.anthropicSessionId,
           title: sessionOwnership.title,
+          agentType: sessionOwnership.agentType,
           createdAt: sessionOwnership.createdAt,
         })
         .from(sessionOwnership)

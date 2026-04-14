@@ -1,19 +1,19 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import ChatPage from "@/components/chat-page";
 import type { ChatMessage } from "@/hooks/use-agent-chat";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 
-export default function SessionPage({
-  params,
+export default function SessionClient({
+  sessionId,
+  agentType,
 }: {
-  params: Promise<{ sessionId: string }>;
+  sessionId: string;
+  agentType: string;
 }) {
-  const { sessionId } = use(params);
-  const [initialMessages, setInitialMessages] = useState<ChatMessage[] | null>(
-    null,
-  );
+  const [initialMessages, setInitialMessages] = useState<ChatMessage[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -39,9 +39,7 @@ export default function SessionPage({
       <div className="flex h-dvh items-center justify-center">
         <div className="space-y-2 text-center">
           <p className="text-sm text-muted-foreground">{error}</p>
-          <a href="/agent" className="text-sm underline">
-            Start en ny samtale
-          </a>
+          <Link href="/agent" className="text-sm underline">Start en ny samtale</Link>
         </div>
       </div>
     );
@@ -50,14 +48,16 @@ export default function SessionPage({
   if (initialMessages === null) {
     return (
       <div className="flex h-dvh items-center justify-center">
-        <Shimmer as="p" className="text-sm">
-          Laster samtale...
-        </Shimmer>
+        <Shimmer as="p" className="text-sm">Laster samtale...</Shimmer>
       </div>
     );
   }
 
   return (
-    <ChatPage initialSessionId={sessionId} initialMessages={initialMessages} />
+    <ChatPage
+      initialSessionId={sessionId}
+      initialMessages={initialMessages}
+      agentType={agentType}
+    />
   );
 }

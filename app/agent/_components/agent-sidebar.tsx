@@ -32,8 +32,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useSessions, type SessionListItem } from "./sessions-provider";
+import type { SidebarAgentInfo } from "../layout";
 
-export function AgentSidebar() {
+interface AgentSidebarProps {
+  sidebarAgents: SidebarAgentInfo[];
+}
+
+export function AgentSidebar({ sidebarAgents }: AgentSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { sessions, loading, renameSession } = useSessions();
@@ -41,55 +46,165 @@ export function AgentSidebar() {
   const isCollapsed = state === "collapsed" && !isMobile;
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  // Extract active agent slug from pathname: /agent/<slug>/... or /agent/<slug>
+  const activeAgent = pathname.match(/^\/agent\/([^/]+)/)?.[1] ?? null;
+
+  // Single-agent case: use the simple layout
+  if (sidebarAgents.length === 1) {
+    const agent = sidebarAgents[0];
+    const isActiveAgent = activeAgent === agent.slug;
+
+    return (
+      <Sidebar collapsible="icon">
+        <SidebarHeader>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={() => router.push(`/agent/${agent.slug}`)}
+                tooltip={agent.newSessionLabel}
+              >
+                <PlusIcon />
+                <span>{agent.newSessionLabel}</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarHeader>
+
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupLabel>{agent.sessionGroupLabel}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {loading && sessions.length === 0 ? (
+                  <SidebarMenuItem>
+                    <div className="px-2 py-1 text-muted-foreground text-xs">
+                      Laster…
+                    </div>
+                  </SidebarMenuItem>
+                ) : sessions.length === 0 ? (
+                  <SidebarMenuItem>
+                    <div className="px-2 py-1 text-muted-foreground text-xs">
+                      Ingen {agent.sessionGroupLabel.toLowerCase()} enda
+                    </div>
+                  </SidebarMenuItem>
+                ) : (
+                  sessions.map((s) => (
+                    <SessionRow
+                      key={s.id}
+                      session={s}
+                      agentSlug={agent.slug}
+                      isActive={isActiveAgent && pathname === `/agent/${agent.slug}/${s.id}`}
+                      isEditing={editingId === s.id}
+                      onStartEdit={() => setEditingId(s.id)}
+                      onEndEdit={() => setEditingId(null)}
+                      onRename={renameSession}
+                    />
+                  ))
+                )}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+
+        <SidebarFooter>
+          <div className="flex items-center gap-2 px-1 py-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-1">
+            <UserButton />
+            {!isCollapsed && (
+              <OrganizationSwitcher
+                hidePersonal
+                afterSelectOrganizationUrl="/agent"
+                afterCreateOrganizationUrl="/pending"
+                appearance={{
+                  elements: {
+                    rootBox: "flex-1 min-w-0",
+                    organizationSwitcherTrigger: "w-full min-w-0",
+                    organizationPreview: "min-w-0",
+                    organizationPreviewTextContainer: "min-w-0",
+                    organizationPreviewMainIdentifier: "truncate",
+                  },
+                }}
+              />
+            )}
+          </div>
+        </SidebarFooter>
+
+        <SidebarRail />
+      </Sidebar>
+    );
+  }
+
+  // Multi-agent case: group by agent, with buttons for each
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              onClick={() => router.push("/agent")}
-              tooltip="Ny samtale"
-            >
-              <PlusIcon />
-              <span>Ny samtale</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+          {sidebarAgents.map((agent) => {
+            const isActiveAgent = activeAgent === agent.slug;
+            return (
+              <SidebarMenuItem key={agent.slug}>
+                <SidebarMenuButton
+                  onClick={() => router.push(`/agent/${agent.slug}`)}
+                  tooltip={agent.newSessionLabel}
+                  variant={isActiveAgent ? "default" : "outline"}
+                >
+                  <PlusIcon />
+                  <span>{agent.newSessionLabel}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
         </SidebarMenu>
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Samtaler</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {loading && sessions.length === 0 ? (
-                <SidebarMenuItem>
-                  <div className="px-2 py-1 text-muted-foreground text-xs">
-                    Laster…
-                  </div>
-                </SidebarMenuItem>
-              ) : sessions.length === 0 ? (
-                <SidebarMenuItem>
-                  <div className="px-2 py-1 text-muted-foreground text-xs">
-                    Ingen samtaler enda
-                  </div>
-                </SidebarMenuItem>
-              ) : (
-                sessions.map((s) => (
-                  <SessionRow
-                    key={s.id}
-                    session={s}
-                    isActive={pathname === `/agent/${s.id}`}
-                    isEditing={editingId === s.id}
-                    onStartEdit={() => setEditingId(s.id)}
-                    onEndEdit={() => setEditingId(null)}
-                    onRename={renameSession}
-                  />
-                ))
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {sidebarAgents.map((agent) => {
+          const isActiveAgent = activeAgent === agent.slug;
+          const agentSessions = sessions.filter(
+            (s) => s.agentType === agent.slug
+          );
+
+          return (
+            <SidebarGroup key={agent.slug}>
+              <SidebarGroupLabel
+                className={
+                  isActiveAgent ? "text-foreground" : "text-muted-foreground"
+                }
+              >
+                {agent.sessionGroupLabel}
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {loading && sessions.length === 0 ? (
+                    <SidebarMenuItem>
+                      <div className="px-2 py-1 text-muted-foreground text-xs">
+                        Laster…
+                      </div>
+                    </SidebarMenuItem>
+                  ) : agentSessions.length === 0 ? (
+                    <SidebarMenuItem>
+                      <div className="px-2 py-1 text-muted-foreground text-xs">
+                        Ingen {agent.sessionGroupLabel.toLowerCase()} enda
+                      </div>
+                    </SidebarMenuItem>
+                  ) : (
+                    agentSessions.map((s) => (
+                      <SessionRow
+                        key={s.id}
+                        session={s}
+                        agentSlug={agent.slug}
+                        isActive={isActiveAgent && pathname === `/agent/${agent.slug}/${s.id}`}
+                        isEditing={editingId === s.id}
+                        onStartEdit={() => setEditingId(s.id)}
+                        onEndEdit={() => setEditingId(null)}
+                        onRename={renameSession}
+                      />
+                    ))
+                  )}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          );
+        })}
       </SidebarContent>
 
       <SidebarFooter>
@@ -121,6 +236,7 @@ export function AgentSidebar() {
 
 interface SessionRowProps {
   session: SessionListItem;
+  agentSlug: string;
   isActive: boolean;
   isEditing: boolean;
   onStartEdit: () => void;
@@ -130,6 +246,7 @@ interface SessionRowProps {
 
 function SessionRow({
   session,
+  agentSlug,
   isActive,
   isEditing,
   onStartEdit,
@@ -137,7 +254,7 @@ function SessionRow({
   onRename,
 }: SessionRowProps) {
   const label = session.title ?? "Uten tittel";
-  const href = `/agent/${session.id}`;
+  const href = `/agent/${agentSlug}/${session.id}`;
   const inputRef = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState(session.title ?? "");
 

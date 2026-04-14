@@ -13,6 +13,7 @@ export interface SessionListItem {
   id: string;
   title: string | null;
   createdAt: string;
+  agentType: string;
 }
 
 interface SessionsContextValue {
@@ -20,7 +21,7 @@ interface SessionsContextValue {
   loading: boolean;
   refresh: () => Promise<void>;
   applyTitle: (sessionId: string, title: string) => void;
-  upsertPlaceholder: (sessionId: string) => void;
+  upsertPlaceholder: (sessionId: string, agentType: string) => void;
   renameSession: (sessionId: string, title: string) => Promise<void>;
 }
 
@@ -71,11 +72,11 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
     [sessions],
   );
 
-  const upsertPlaceholder = useCallback((sessionId: string) => {
+  const upsertPlaceholder = useCallback((sessionId: string, agentType: string) => {
     setSessions((prev) => {
       if (prev.some((s) => s.id === sessionId)) return prev;
       return [
-        { id: sessionId, title: null, createdAt: new Date().toISOString() },
+        { id: sessionId, title: null, createdAt: new Date().toISOString(), agentType },
         ...prev,
       ];
     });

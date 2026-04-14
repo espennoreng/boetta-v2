@@ -6,7 +6,6 @@ import { makeQueries } from "@/lib/db/queries";
 import { db } from "@/lib/db";
 
 const client = new Anthropic();
-const agentModule = getAgent("byggesak");
 const queries = makeQueries(db);
 
 interface ReconstructedMessage {
@@ -45,6 +44,8 @@ export async function GET(
   if (!ownership || ownership.clerkOrgId !== ctx.orgId) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  const agentModule = getAgent(ownership.agentType);
 
   try {
     const session = await client.beta.sessions.retrieve(sessionId);

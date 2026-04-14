@@ -3,7 +3,7 @@ import {
   type AttachmentForChat,
   buildContentBlocksFromAttachments,
 } from "@/lib/attachments";
-import { getAgent } from "@/lib/agents/registry";
+import { getAgent, agentEnvVarFor } from "@/lib/agents/registry";
 import {
   type Citation,
   extractCitationsFromToolResult,
@@ -14,9 +14,6 @@ import { db } from "@/lib/db";
 
 const client = new Anthropic();
 
-const AGENT_TYPE = "byggesak";
-
-const agentModule = getAgent(AGENT_TYPE);
 const ownershipQueries = makeQueries(db);
 
 function requireEnv(name: string): string {
@@ -36,12 +33,13 @@ export async function interruptSession(sessionId: string): Promise<void> {
 }
 
 export async function createSession(params: {
+  agentType: string;
   clerkOrgId: string;
   clerkUserId: string;
   title?: string;
 }): Promise<string> {
   const session = await client.beta.sessions.create({
-    agent: requireEnv("ANTHROPIC_AGENT_ID"),
+    agent: requireEnv(agentEnvVarFor(params.agentType)),
     environment_id: requireEnv("ANTHROPIC_ENVIRONMENT_ID"),
     metadata: {
       clerkOrgId: params.clerkOrgId,
@@ -54,6 +52,7 @@ export async function createSession(params: {
     anthropicSessionId: session.id,
     clerkOrgId: params.clerkOrgId,
     clerkUserId: params.clerkUserId,
+    agentType: params.agentType,
     title: params.title,
   });
 
@@ -68,6 +67,7 @@ export interface StreamEvent {
 
 async function* resolvePendingToolCalls(
   sessionId: string,
+  agentModule: ReturnType<typeof getAgent>,
 ): AsyncGenerator<StreamEvent> {
   // Find the most recent session.status_idle event to check for pending actions
   let pendingIds: string[] | null = null;
@@ -158,7 +158,7 @@ async function* resolvePendingToolCalls(
       if (event.type === "session.status_idle") break;
     }
     // Recurse in case the agent called more custom tools
-    yield* resolvePendingToolCalls(sessionId);
+    yield* resolvePendingToolCalls(sessionId, agentModule);
   }
 }
 
@@ -169,11 +169,13 @@ async function* resolvePendingToolCalls(
  */
 export async function* streamWithToolHandling(
   sessionId: string,
+  agentType: string,
   text: string,
   attachments: AttachmentForChat[] = [],
 ): AsyncGenerator<StreamEvent> {
+  const agentModule = getAgent(agentType);
   // Resolve any pending tool calls from a previous interrupted session
-  yield* resolvePendingToolCalls(sessionId);
+  yield* resolvePendingToolCalls(sessionId, agentModule);
 
   const content = buildContentBlocksFromAttachments({ text, attachments });
 

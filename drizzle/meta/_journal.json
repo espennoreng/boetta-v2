@@ -15,6 +15,13 @@
       "when": 1776143963018,
       "tag": "0001_military_purifiers",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776169301695,
+      "tag": "0002_stiff_sally_floyd",
+      "breakpoints": true
     }
   ]
 }

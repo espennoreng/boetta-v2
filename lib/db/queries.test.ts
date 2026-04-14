@@ -100,6 +100,7 @@ describe("recordSessionOwnership + getSessionOwnership", () => {
       anthropicSessionId: "sess_1",
       clerkOrgId: "org_a",
       clerkUserId: "user_1",
+      agentType: "kommune-byggesak-saksbehandler",
     });
     const row = await q.getSessionOwnership("sess_1");
     expect(row?.clerkOrgId).toBe("org_a");
@@ -117,6 +118,7 @@ describe("listSessionsForOrg", () => {
       anthropicSessionId: "sess_old",
       clerkOrgId: "org_a",
       clerkUserId: "user_1",
+      agentType: "kommune-byggesak-saksbehandler",
     });
     // Small delay to ensure distinct created_at; PGlite resolves now() per statement.
     await new Promise((r) => setTimeout(r, 5));
@@ -124,12 +126,14 @@ describe("listSessionsForOrg", () => {
       anthropicSessionId: "sess_new",
       clerkOrgId: "org_a",
       clerkUserId: "user_1",
+      agentType: "kommune-byggesak-saksbehandler",
       title: "Byggesak Bergen",
     });
     await q.recordSessionOwnership({
       anthropicSessionId: "sess_other_org",
       clerkOrgId: "org_b",
       clerkUserId: "user_2",
+      agentType: "kommune-byggesak-saksbehandler",
     });
 
     const rows = await q.listSessionsForOrg("org_a");
@@ -142,6 +146,7 @@ describe("listSessionsForOrg", () => {
       anthropicSessionId: "sess_a",
       clerkOrgId: "org_a",
       clerkUserId: "user_1",
+      agentType: "kommune-byggesak-saksbehandler",
     });
     await testDb.db.execute(
       sql`UPDATE session_ownership SET archived_at = now() WHERE anthropic_session_id = 'sess_a'`,
@@ -161,6 +166,7 @@ describe("updateSessionTitle", () => {
       anthropicSessionId: "sess_1",
       clerkOrgId: "org_a",
       clerkUserId: "user_1",
+      agentType: "kommune-byggesak-saksbehandler",
     });
     await q.updateSessionTitle("sess_1", "Fradeling av tomt");
     const row = await q.getSessionOwnership("sess_1");

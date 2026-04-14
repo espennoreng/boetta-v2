@@ -271,17 +271,20 @@ function QuestionCard({
 interface ChatPageProps {
   initialSessionId?: string | null;
   initialMessages?: ChatMessage[];
+  agentType?: string;
 }
 
-export default function ChatPage({ initialSessionId, initialMessages }: ChatPageProps) {
+export default function ChatPage({ initialSessionId, initialMessages, agentType }: ChatPageProps) {
   const { refresh, applyTitle, upsertPlaceholder } = useSessions();
 
   const handleSessionCreated = useCallback(
     (sessionId: string) => {
-      upsertPlaceholder(sessionId);
+      if (agentType) {
+        upsertPlaceholder(sessionId, agentType);
+      }
       void refresh();
     },
-    [refresh, upsertPlaceholder],
+    [refresh, upsertPlaceholder, agentType],
   );
 
   const handleTitleUpdate = useCallback(
@@ -294,6 +297,7 @@ export default function ChatPage({ initialSessionId, initialMessages }: ChatPage
   const { messages, status, sendMessage, stopMessage, sessionId, ensureSession } = useAgentChat({
     initialSessionId,
     initialMessages,
+    agentType,
     onSessionCreated: handleSessionCreated,
     onTitleUpdate: handleTitleUpdate,
   });

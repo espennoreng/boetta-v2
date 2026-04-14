@@ -23,6 +23,7 @@ export async function GET() {
       id: r.anthropicSessionId,
       title: r.title,
       createdAt: r.createdAt.toISOString(),
+      agentType: r.agentType,
     })),
   });
 }
