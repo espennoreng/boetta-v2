@@ -2,21 +2,18 @@ import {
   createSession,
   streamWithToolHandling,
 } from "@/lib/agent-manager";
-import { requireActive } from "@/lib/auth";
+import { requireActive, type CurrentContext } from "@/lib/auth";
 import { makeQueries } from "@/lib/db/queries";
 import { makeAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { generateSessionTitle } from "@/lib/session-title";
-import type { FileUIPart } from "ai";
+import { resolveAttachmentsForChat } from "@/lib/attachments";
 
 const queries = makeQueries(db);
 const audit = makeAudit(db);
 
-// Must stay in sync with experimental.proxyClientMaxBodySize in next.config.ts.
-const MAX_REQUEST_BODY_BYTES = 25 * 1024 * 1024;
-
 export async function POST(request: Request) {
-  let ctx;
+  let ctx: CurrentContext;
   try {
     ctx = await requireActive();
   } catch (err) {
@@ -27,56 +24,17 @@ export async function POST(request: Request) {
     );
   }
 
-  const contentLengthHeader = request.headers.get("content-length");
-  const contentLength = contentLengthHeader ? Number(contentLengthHeader) : null;
-  if (contentLength !== null && contentLength > MAX_REQUEST_BODY_BYTES) {
-    const limitMb = MAX_REQUEST_BODY_BYTES / (1024 * 1024);
-    const sentMb = (contentLength / (1024 * 1024)).toFixed(1);
-    console.error(
-      `[/api/chat] Rejected request: body ${sentMb}MB exceeds limit ${limitMb}MB. ` +
-        "Bump experimental.proxyClientMaxBodySize in next.config.ts AND MAX_REQUEST_BODY_BYTES in this file.",
-    );
-    return new Response(
-      JSON.stringify({
-        error: "Request body too large",
-        message: `Uploaded payload is ${sentMb}MB; the server limit is ${limitMb}MB. Reduce file size or raise the limit in next.config.ts (proxyClientMaxBodySize) and app/api/chat/route.ts (MAX_REQUEST_BODY_BYTES).`,
-        sentBytes: contentLength,
-        limitBytes: MAX_REQUEST_BODY_BYTES,
-      }),
-      { status: 413, headers: { "Content-Type": "application/json" } },
-    );
-  }
-
-  let parsedBody: { message: string; sessionId?: string; files?: FileUIPart[] };
+  let parsedBody: { message: string; sessionId?: string; attachmentIds?: string[] };
   try {
-    parsedBody = (await request.json()) as {
-      message: string;
-      sessionId?: string;
-      files?: FileUIPart[];
-    };
-  } catch (err) {
-    const limitMb = MAX_REQUEST_BODY_BYTES / (1024 * 1024);
-    const sentMb = contentLength !== null ? (contentLength / (1024 * 1024)).toFixed(1) : "?";
-    const detail = err instanceof Error ? err.message : String(err);
-    console.error(
-      `[/api/chat] Failed to parse JSON body (content-length: ${sentMb}MB, limit: ${limitMb}MB). ` +
-        `If sentMb ≈ limitMb the body was truncated by the proxy buffer — raise both proxyClientMaxBodySize and MAX_REQUEST_BODY_BYTES. Detail: ${detail}`,
-    );
+    parsedBody = (await request.json()) as typeof parsedBody;
+  } catch {
     return new Response(
-      JSON.stringify({
-        error: "Could not parse request body as JSON",
-        message:
-          contentLength !== null && contentLength >= MAX_REQUEST_BODY_BYTES * 0.95
-            ? `Body (${sentMb}MB) is at or near the ${limitMb}MB proxy limit and was likely truncated. Raise experimental.proxyClientMaxBodySize in next.config.ts and MAX_REQUEST_BODY_BYTES in app/api/chat/route.ts.`
-            : `JSON parse failed: ${detail}`,
-        sentBytes: contentLength,
-        limitBytes: MAX_REQUEST_BODY_BYTES,
-      }),
+      JSON.stringify({ error: "Could not parse request body as JSON" }),
       { status: 400, headers: { "Content-Type": "application/json" } },
     );
   }
 
-  const { message, sessionId: existingSessionId, files } = parsedBody;
+  const { message, sessionId: existingSessionId, attachmentIds = [] } = parsedBody;
 
   let sessionId = existingSessionId;
   let eventForAudit: "session.created" | "session.opened" = "session.opened";
@@ -105,6 +63,15 @@ export async function POST(request: Request) {
     subjectId: sessionId,
   });
 
+  const rows = attachmentIds.length
+    ? await queries.getAttachmentsForChat({ ids: attachmentIds, clerkOrgId: ctx.orgId })
+    : [];
+  const resolved = await resolveAttachmentsForChat({
+    rows,
+    setAnthropicFileId: async ({ id, anthropicFileId }) =>
+      queries.setAnthropicFileId({ id, anthropicFileId }),
+  });
+
   const isNewSession = eventForAudit === "session.created";
   const encoder = new TextEncoder();
 
@@ -112,13 +79,28 @@ export async function POST(request: Request) {
     async start(controller) {
       let assistantText = "";
       try {
-        // TODO(Task 10): replace files with resolved AttachmentForChat[]
-        for await (const event of streamWithToolHandling(
-          sessionId!,
-          message,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (files ?? []) as any,
-        )) {
+        async function* runStream() {
+          try {
+            yield* streamWithToolHandling(sessionId!, message, resolved);
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            if (!msg.includes("stale file_id")) throw err;
+            for (const a of resolved) {
+              await queries.clearAnthropicFileId({ id: a.id });
+            }
+            const reFetched = await queries.getAttachmentsForChat({
+              ids: attachmentIds, clerkOrgId: ctx.orgId,
+            });
+            const reResolved = await resolveAttachmentsForChat({
+              rows: reFetched,
+              setAnthropicFileId: async ({ id, anthropicFileId }) =>
+                queries.setAnthropicFileId({ id, anthropicFileId }),
+            });
+            yield* streamWithToolHandling(sessionId!, message, reResolved);
+          }
+        }
+
+        for await (const event of runStream()) {
           if (event.type === "text" && typeof event.text === "string") {
             assistantText += event.text;
           }
