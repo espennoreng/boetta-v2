@@ -17,7 +17,7 @@ export async function approveOrg(formData: FormData) {
   const orgType = String(formData.get("orgType") ?? "");
 
   if (!clerkOrgId) throw new Error("clerkOrgId required");
-  if (orgType !== "municipality" && orgType !== "business") {
+  if (orgType !== "municipality" && orgType !== "tiltakshaver") {
     throw new Error("orgType invalid");
   }
 
