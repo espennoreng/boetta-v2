@@ -2,6 +2,7 @@
 const displayNames: Record<string, string> = {
   resolve_property: "Slår opp eiendom",
   nve_check: "Sjekker NVE-registre",
+  riksantikvaren_check: "Oppslag kulturminne",
 };
 
 export function getDisplayName(
